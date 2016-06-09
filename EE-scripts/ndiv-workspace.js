@@ -18,7 +18,7 @@ var NDVI_Threshold = 0.54;
 //Imports mask/Creates variable containing imported mask
 var mask_input = ee.Image('GME/images/06136759344167181854-02242958771191394493');
 
-//Takes an empty image and applies a 1 to everything outside of the masked area
+//Takes an empty image and applies a 1 to everything outside of the masked area (inverts mask_input)
     //ie. New image returns everything that isn't a road, river, etc.
 var blank_mask = ee.Image(0);
 var mask_inverted = blank_mask.where(mask_input.lte(0),1);
@@ -43,9 +43,8 @@ var NDVI = composite.expression(
 var blank = ee.Image(0);
 var LowNDVI = blank.where(NDVI.lte(NDVI_Threshold), 1);
 
-//Creates binary image containing the intersection between the LowNDVI and anything that isn't masked off
+//Creates binary image containing the intersection between the LowNDVI and anything where the inverted mask is 1
 var MTR = LowNDVI.and(mask_inverted);
-
 
 /***************** VISUALIZE IN MAP DISPLAY *********************************************************/
 /* Creates styles which can be applied by the Map.addLayer function for the purpose of
@@ -75,11 +74,13 @@ var sld_intervals3 = '\
   </ColorMap>\
 </RasterSymbolizer>';
 
-//Centers map and sets zoom for this API display
+//Centers map and sets zoom for this API display       FORMAT:(Longitude, Latitude, Zoom-level)
 Map.setCenter(-81.58,37.92,12);
 //Adds layers to display in this API
 Map.addLayer(LowNDVI.sldStyle(sld_intervals1), {}, 'Low NDVI' );
 
+//^^^^^
+//The style only applies in api; the style doesn't export with the data
 
 /***************** EXPORT RESULTS *******************************************************************/
 ////*Cuts AOI into quadrants for faster export time*
@@ -90,6 +91,7 @@ var geometryII  = ee.Geometry.Rectangle([-82.421, 37.3525, -84.993, 38.942]);
 var geometryIII = ee.Geometry.Rectangle([-82.421, 35.763,  -84.993, 37.3525]);
 var geometryIV  = ee.Geometry.Rectangle([-79.849, 35.763,  -82.421, 37.3525]);
 //Creates variables that contain the geometries in geoJson format
+//**when exporting, region must be specified in geoJson format**
 var jsonCoordI   = geometryI.toGeoJSON();
 var jsonCoordII  = geometryII.toGeoJSON();
 var jsonCoordIII = geometryIII.toGeoJSON();
@@ -99,6 +101,9 @@ var jsonCoordIV  = geometryIV.toGeoJSON();
 //  which is used by Export.image function
 var lsat_crs = composite.projection().atScale(30).getInfo()['crs'];
 var lsat_crs_transform = composite.projection().atScale(30).getInfo()['transform'];
+
+//.atScale() -- pixel size of image ie. for landsat .atScale(30) because landsat pixels are 30m,
+//.getinfo() extracts the data; .getInfo()['crs'] extracts the crs data from the composite
 
 var mask_crs = mask_input.projection().atScale(30).getInfo()['crs'];
 var mask_crs_transform = mask_input.projection().atScale(30).getInfo()['transform'];
@@ -118,3 +123,19 @@ Export.image(NDVI, 'NDVI-SceneIV', {crs: lsat_crs, crs_transform: lsat_crs_trans
 //Note: When running export from Tasks tab, make sure to specify a google drive folder that already exists
 //      in the user's Google Drive. Alternatively, add a driveFolder parameter to the Export.image function
 //      with existing Google Drive folder name for more convenient exporting.
+
+Map.addLayer(MTR, {min:0, max:1}, 'MTR');
+//Map.addLayer(image, {min:0, max:1}, 'mask');
+// var mean = image.reduceRegion({
+// reducer: ee.Reducer.mean(),
+// geometry: region.geometry(),
+// scale: 30,
+// maxPixels: 1e9,
+// bestEffort: true,
+// });
+var MTRI = MTR.clip(geometryI);
+
+//var mean = MTRI.reduceRegion(ee.Reducer.sum(), geometryI, 30);
+//print(mean);
+
+//Map.addLayer(mask_input, {min:0, max:1}, 'mask_input');
