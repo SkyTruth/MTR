@@ -143,80 +143,27 @@ var lsat8_crs_transform = L8_composite.projection().atScale(30).getInfo()['trans
 var mask60m_crs = mask_input_60m.projection().atScale(30).getInfo()['crs'];
 var mask60m_crs_transform = mask_input_60m.projection().atScale(30).getInfo()['transform'];
 
-/*----------------------------- Exports images -----------------------------
-                                // LANDSAT 5 Images
-Export.image.toDrive(L5_composite, 'L5_composite-SceneI', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordI});
-Export.image.toDrive(L5_composite, 'L5_composite-SceneII', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordII});
-Export.image.toDrive(L5_composite, 'L5_composite-SceneIII', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordIII});
-Export.image.toDrive(L5_composite, 'L5_composite-SceneIV', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordIV});
-                              // LANDSAT 7 Images
-Export.image.toDrive(L7_composite, 'L7_composite-SceneI', {crs: lsat7_crs, crs_transform: lsat7_crs_transform, region: jsonCoordI});
-Export.image.toDrive(L7_composite, 'L7_composite-SceneII', {crs: lsat7_crs, crs_transform: lsat7_crs_transform, region: jsonCoordII});
-Export.image.toDrive(L7_composite, 'L7_composite-SceneIII', {crs: lsat7_crs, crs_transform: lsat7_crs_transform, region: jsonCoordIII});
-Export.image.toDrive(L7_composite, 'L7_composite-SceneIV', {crs: lsat7_crs, crs_transform: lsat7_crs_transform, region: jsonCoordIV});
-                                // LANDSAT 8 Images
-Export.image.toDrive(L8_composite, 'L8_composite-SceneI', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordI});
-Export.image.toDrive(L8_composite, 'L8_composite-SceneII', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordII});
-Export.image.toDrive(L8_composite, 'L8_composite-SceneIII', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIII});
-Export.image.toDrive(L8_composite, 'L8_composite-SceneIV', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIV});
-
-                        // Exporting NDVI Data as Scenes
-                                // LANDSAT 5 NDVI
-Export.image.toDrive(ndvi_L5, 'L5-NDVI-SceneI', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordI});
-Export.image.toDrive(ndvi_L5, 'L5-NDVI-SceneII', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordII});
-Export.image.toDrive(ndvi_L5, 'L5-NDVI-SceneIII', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordIII});
-Export.image.toDrive(ndvi_L5, 'L5-NDVI-SceneIV', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordIV});
-                                // LANDSAT 7 NDVI
-Export.image.toDrive(ndvi_L7, 'L7-NDVI-SceneI', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordI});
-Export.image.toDrive(ndvi_L7, 'L7-NDVI-SceneII', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordII});
-Export.image.toDrive(ndvi_L7, 'L7-NDVI-SceneIII', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordIII});
-Export.image.toDrive(ndvi_L7, 'L7-NDVI-SceneIV', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordIV});
-                                // LANDSAT 8 NDVI
-Export.image.toDrive(ndvi_L8, 'L8-NDVI-SceneI', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordI});
-Export.image.toDrive(ndvi_L8, 'L8-NDVI-SceneII', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordII});
-Export.image.toDrive(ndvi_L8, 'L8-NDVI-SceneIII', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIII});
-Export.image.toDrive(ndvi_L8, 'L8-NDVI-SceneIV', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIV});
-
-                              // Exporting MTR Sites
-//Export.image.toDrive(MTR_1, '2015-MTR_Scene-1', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordI});
-//Export.image.toDrive(MTR_1, '2015-MTR_Scene-2', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordII});
-//Export.image.toDrive(MTR_1, '2015-MTR_Scene-3', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIII});
-//Export.image.toDrive(MTR_1, '2015-MTR_Scene-4', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIV});
-          // USE ^^ for any Landsat 8 based MTR classification
-//Export.image.toDrive(MTR_2, '2012-MTR_Scene-1', {crs: lsat7_crs, crs_transform: lsat7_crs_transform, region: jsonCoordI});
-//Export.image.toDrive(MTR_2, '2012-MTR_Scene-2', {crs: lsat7_crs, crs_transform: lsat7_crs_transform, region: jsonCoordII});
-//Export.image.toDrive(MTR_2, '2012-MTR_Scene-3', {crs: lsat7_crs, crs_transform: lsat7_crs_transform, region: jsonCoordIII});
-//Export.image.toDrive(MTR_2, '2012-MTR_Scene-4', {crs: lsat7_crs, crs_transform: lsat7_crs_transform, region: jsonCoordIV});
-          // USE ^^ for any Landsat 7 based MTR classification
-//Export.image.toDrive(MTR_3, '2011-MTR_Scene-1', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordI});
-//Export.image.toDrive(MTR_3, '2011-MTR_Scene-2', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordII});
-//Export.image.toDrive(MTR_3, '2011-MTR_Scene-3', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordIII});
-//Export.image.toDrive(MTR_3, '2011-MTR_Scene-4', {crs: lsat5_crs, crs_transform: lsat5_crs_transform, region: jsonCoordIV});
-          // USE ^^ for any Landsat 5 based MTR classification
-*/
-//Note: When running export from Tasks tab, make sure to specify a google drive folder that already exists
-//      in the user's Google Drive. Alternatively, add a driveFolder parameter to the Export.image function
-//      with existing Google Drive folder name for more convenient exporting.
-
+// For image exports, see 5-23_MTR_Script
 
 //------------------------------------ Work in Progress ------------------------------------
 // Code below this point is still being tested, run at your own risk...
 
-// Reclaimed Mine Classification:
+// ------------------- Reclaimed Mine Classification: *** THIS WORKS *** -------------------
 //      Early Date - Later Date
 // Areas which are classified as mine land in earlier image but not later image, are now
 // classified as reclaimed mine land.
-var reclaimed = MTR_2.subtract(MTR_1);
-Map.addLayer(reclaimed.sldStyle(sld_intervals4), {min:0, max:1}, 'reclaim');
+//var reclaimed = MTR_2.subtract(MTR_1);
+//Map.addLayer(reclaimed.sldStyle(sld_intervals4), {min:0, max:1}, 'reclaim');
 
-///////////////////////////// vvvvv THIS WORKS!!!! vvvvv /////////////////////////////
+
+// ------------------------- EROSION & DILATION: *** THIS WORKS *** ------------------------
+
 // ERODE/DILATE MTR Sites to remove outliers
-// ^^ Erosion still in progress
 //___1___
 var blank_mask = ee.Image(0);
 //___2___
 Map.addLayer(MTR_1_clipped.sldStyle(sld_intervals1), {min:0, max:1}, 'MTR 2015 Clipped');
-//----------------------------------------- EROSION -----------------------------------------
+// EROSION
 //___3a___
 var MTR_invert = blank_mask.where(MTR_1_clipped.eq(0),1).where(MTR_1_clipped.eq(1),0);
 //Map.addLayer(MTR_invert, {min:0, max:1}, 'MTR 2015 Invert');
@@ -229,14 +176,14 @@ var MTR_in30 = MTR_1_clipped.subtract(MTR_invert_buffer);
 //___6a___
 var final_invert = blank_mask.where(MTR_in30.eq(0),0).where(MTR_in30.gte(0),1);
 var MTR_buffered_in = blank_mask.where(final_invert.eq(0),1).where(final_invert.eq(1),0);
-Map.addLayer(MTR_buffered_in.sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2015 Eroded');
-//----------------------------------------- DILATION -----------------------------------------
+Map.addLayer(MTR_buffered_in.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2015 Eroded');
+// DILATION
 //___3b___
 var buffer_out = MTR_buffered_in.distance(ee.Kernel.euclidean(30,'meters'));
 //Map.addLayer(buffer_out, {min:0, max:1}, 'MTR buffering_out');
 var buffer_out_2 = buffer_out.where(MTR_in30.eq(0),0).where(MTR_in30.gte(0),1);
 //Map.addLayer(buffer_out_2, {min:0, max:1}, 'MTR buffering_out 2');
-var final_buffer_out = MTR_buffered_in.add(buffer_out_2);
+var final_buffer_out = MTR_buffered_in.clip(campagna_study_area).add(buffer_out_2);
 Map.addLayer(final_buffer_out.sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 2015 Dilated');
 //Export.image(final_buffer_out, '2015_MTR_Dilated_Scene-1', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordI});
 //Export.image(final_buffer_out, '2015_MTR_Dilated_Scene-2', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordII});
@@ -246,9 +193,27 @@ Map.addLayer(final_buffer_out.sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 201
 //Export.image(MTR_1_clipped, '2015_MTR_clipped_Scene-2', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordII});
 //Export.image(MTR_1_clipped, '2015_MTR_clipped_Scene-3', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIII});
 //Export.image(MTR_1_clipped, '2015_MTR_clipped_Scene-4', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIV});
-///////////////////////////// ^^^^^ THIS WORKS!!!! ^^^^^ /////////////////////////////
+//------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
+// ------------------------- AREA CALCULATION: *** IN PROGRESS *** ------------------------
+
+var Area = ee.Image.pixelArea();
+function get_area(layerName, theLayer){
+  var areaAll = theLayer.multiply(Area).reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometryIII,
+    scale: 30,
+    crs: 'EPSG:3857',
+    maxPixels: 1e9
+  });
+  var areaKmSq = ee.Number(areaAll.get('constant')).divide(1000*1000);
+  print(layerName,areaKmSq);
+  return areaKmSq;
+}
+get_area("2015 MTR Site Area in Km Sq: ", final_buffer_out);
+
+/*
 // Kroodsma Area Calculation Work:
 // Get a pixel area image, which will apply to any scale you provide
 var pixelArea = ee.Image.pixelArea();
@@ -267,7 +232,6 @@ function get_area(layerName, theLayer){
 }
 get_area("2015_MTR_Dilated_Scene-1 Area in Sq Km: ", final_buffer_out);
 
-
 // Get a pixel area image, which will apply to any scale you provide
 var pixelArea1 = ee.Image.pixelArea();
 
@@ -283,34 +247,30 @@ function get_area1(layerName, theLayer){
   return areaSqKm;
 }
 get_area1("MTR_1 Area2 in Sq Km: ", final_buffer_out);
-/*
-var pixelArea2 = ee.Image.pixelArea();
-
-function get_area2(layerName, theLayer){
-  var areaIAll = theLayer.multiply(pixelArea2).reduceRegion({
-    reducer: ee.Reducer.sum(),
-    geometry: geometryIII,
-    scale: 30,
-    maxPixels: 1e9
-   });
-   var areaSqKm = ee.Number(areaIAll.get('constant')).divide(1000*1000);
-  print(layerName, areaSqKm);
-  return areaSqKm;
-}
-get_area2("MTR_1 Area3 in Sq Km: ", final_buffer_out);
-
-var pixelArea3 = ee.Image.pixelArea();
-
-function get_area3(layerName, theLayer){
-  var areaIAll = theLayer.multiply(pixelArea3).reduceRegion({
-    reducer: ee.Reducer.sum(),
-    geometry: geometryIV,
-    scale: 30,
-    maxPixels: 1e9
-   });
-   var areaSqKm = ee.Number(areaIAll.get('constant')).divide(1000*1000);
-  print(layerName, areaSqKm);
-  return areaSqKm;
-}
-get_area3("MTR_1 Area4 in Sq Km: ", final_buffer_out);
 */
+//---------------------------------------------------------------------------------------------------
+
+// ------------------------- VECTORIZATION OF MTR SITES: *** IN PROGRESS *** ------------------------
+
+var vector_MTR = MTR_1_clipped.reduceToVectors({
+  geometry: campagna_study_area,
+  geometryType: 'polygon',
+  crs: lsat8_crs,
+  crsTransform: lsat8_crs_transform,
+  eightConnected: false,
+  maxPixels: 1e9,
+  labelProperty: '1',
+});
+//Map.addLayer(vector_MTR);
+//Export.image(final_buffer_out, '2015_MTR_Dilated_Scene-1', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordI});
+//Export.table(vector_MTR,'vector_MTR1_minmax',{crs: lsat8_crs, crs_transform: lsat8_crs_transform, min:0, max:1});
+      // ^^^ Needs to be exported as GeoJson, include min/max values
+//---------------------------------------------------------------------------------------------------
+
+// UPDATES
+// - 5/25: Clip output to Campagna Study Area
+// - 5/25: Area calculation slipped to Campagna Study Area
+// - 5/25: Export.image() is depricated, changed to Export.image.toDrive()
+// - 5/26: Erosion/Dilation of MTR sites is now possible to remove artifact pixels
+// - 5/31: Export polygonized MTR sites
+// - 6/02: Script Cleanup to simpify for work currently In-Progress
