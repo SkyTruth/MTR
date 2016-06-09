@@ -2,22 +2,19 @@
    This script was created by SkyTruth to identify possible active mountaintop removal
    and other surface coal mining.
 ///////////////////////////////////////////////////////////////////////////////////////*/
-/*------------------------------------ Set NDVI Thresholds ----------------------------*/
-/* Sets a threshold value that may be applied to the NDVI layers to seperate the values
-  into two classes: '1' where possible mining is <= threshold, and '0' where vegetation
-  is > threshold.  */
+/*------------------------------------ SET NDVI THRESHOLD ----------------------------*/
 var NDVI_Threshold = 0.51;
 var campagna_study_area = ee.FeatureCollection('ft:1Qo6AmhdEN44vPUpyGtzPtQUUO4rygWv4MljZ-MiE');
 // Get the link here: https://www.google.com/fusiontables/DataSource?docid=1Qo6AmhdEN44vPUpyGtzPtQUUO4rygWv4MljZ-MiE
-/*------------------------------------- Create Mask -------------------------------------
+/*------------------------------------- IMPORT MASK -------------------------------------
 Imports 60 meter mask/creates variable containing imported mask */
 var mask_input_60m = ee.Image('users/christian/60m-mask-total-area');
-    // Takes an empty image and applies a 1 to everything outside of the
-    // masked area (inverts mask_input) ie. New image returns everything
-    // that isn't a road, river, etc.
+    // Applies a  value of 1 to everything outside of the masked area (inverts mask_input)
+    // New image returns everything that isn't a road, river, or urban area. Using 2014 data.
+    // Mask can be downloaded from: https://drive.google.com/file/d/0ByjSOOGMRVf5aUpLa01aX0FXR0U/view?usp=sharing
 var blank_mask = ee.Image(0);
 var mask_inverted_60m = blank_mask.where(mask_input_60m.lte(0),1);
-/*------------------------------ Import Greenest Pixel Composite --------------------------
+/*------------------------------ Import Greenest Pixel Composites -------------------------
 Imports greenest pixel composites for Landsat imagery (L5, L7, & L8). */
 var L8_composite = ee.Image(ee.ImageCollection('LANDSAT/LC8_L1T_ANNUAL_GREENEST_TOA')
   .filterDate('2015-01-01', '2015-12-31')
@@ -29,15 +26,7 @@ var L7_composite = ee.Image(ee.ImageCollection('LANDSAT/LE7_L1T_ANNUAL_GREENEST_
 var L5_composite = ee.Image(ee.ImageCollection('LANDSAT/LT5_L1T_ANNUAL_GREENEST_TOA')
   .filterDate('2011-01-01', '2011-12-31')
   .first());
-/* -------------------------- Calculate NDVI ----------------------------------------------
-              NORMALIZED DIFFERENCE VEGETATION INDEX
-        Formula: NDVI =   (NIR - RED)
-                        --------------
-                          (NIR + RED)
-NDVI is measured on scale of -1 to 1, though values below 0 are uncommon; the
-scale used here is from 0 to 1. Lower values correspond to less dense vegetation
-and are more likely to be bare ground.
-------------------------------------------------------------------------------------------*/
+/* -------------------------- CALCULATE NDVI --------------------------------------------*/
 var ndvi_2015 = L8_composite.expression(
   '(Band5 - Band4) / (Band5 + Band4)',
   {
@@ -59,8 +48,8 @@ var ndvi_2011 = L5_composite.expression(
     Band3: L5_composite.select('B3')
   }
   );
-/* ----------------------------------------- Mask ---------------------------------------------------
-Take an empty image and applies a 1 to where the NDVI values fall below the previously set threshold. */
+/* ----------------------------------------- MASK ----------------------------------------------
+Applies a value of 1 to locations where the NDVI values fall below the previously set threshold. */
 var blank = ee.Image(0);
 var LowNDVI_L8_2015 = blank.where(ndvi_2015.lte(NDVI_Threshold),1);
 var LowNDVI_L7_2012 = blank.where(ndvi_2012.lte(NDVI_Threshold),1);
@@ -100,8 +89,7 @@ var sld_intervals4 = '\
     <ColorMapEntry color="#00d600" quantity="1" label="1" />\
   </ColorMap>\
 </RasterSymbolizer>'; //GREEN
-// Create binary image containing the intersection between the LowVI and anything
-// where the inverted mask is 1.
+// Create binary image containing the intersection between the LowNDVI and anywhere the inverted mask is 1.
 var MTR_1 = LowNDVI_L8_2015.and(mask_inverted_60m);
 var MTR_2 = LowNDVI_L7_2012.and(mask_inverted_60m);
 var MTR_3 = LowNDVI_L5_2011.and(mask_inverted_60m);
@@ -109,7 +97,6 @@ var MTR_3 = LowNDVI_L5_2011.and(mask_inverted_60m);
 var MTR_1_clipped = MTR_1.clip(campagna_study_area);
 var MTR_2_clipped = MTR_2.clip(campagna_study_area);
 var MTR_3_clipped = MTR_3.clip(campagna_study_area);
-
 //Centers map and sets zoom for this API display
 Map.setCenter(-81.58,37.92,12);
 Map.addLayer(campagna_study_area);
@@ -117,8 +104,7 @@ Map.addLayer(MTR_1.clip(campagna_study_area).sldStyle(sld_intervals1), {min:0, m
 Map.addLayer(MTR_2.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2012');
 Map.addLayer(MTR_3.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 2011');
 /*-------------------------- EXPORTING RESULTS --------------------------------------------
-Cuts AOI into quadrants for faster export time
-Creates variables that contain geometry for AOIs*/
+Cuts AOI into quadrants for faster export time; creates variables that contain geometry for AOIs*/
                                       //[   lower right,     upper left   ]
 var geometryI   = ee.Geometry.Rectangle([-79.849, 37.3525, -82.421, 38.942]);
 var geometryII  = ee.Geometry.Rectangle([-82.421, 37.3525, -84.993, 38.942]);
@@ -142,22 +128,15 @@ var lsat8_crs_transform = L8_composite.projection().atScale(30).getInfo()['trans
   //.getinfo() extracts the data; .getInfo()['crs'] extracts the crs data from the composite
 var mask60m_crs = mask_input_60m.projection().atScale(30).getInfo()['crs'];
 var mask60m_crs_transform = mask_input_60m.projection().atScale(30).getInfo()['transform'];
-
-// For image exports, see 5-23_MTR_Script
-
 //------------------------------------ Work in Progress ------------------------------------
-// Code below this point is still being tested, run at your own risk...
-
+// Code below this point is STILL BEING TESTED, run at your own risk...
 // ------------------- Reclaimed Mine Classification: *** THIS WORKS *** -------------------
 //      Early Date - Later Date
 // Areas which are classified as mine land in earlier image but not later image, are now
 // classified as reclaimed mine land.
 //var reclaimed = MTR_2.subtract(MTR_1);
 //Map.addLayer(reclaimed.sldStyle(sld_intervals4), {min:0, max:1}, 'reclaim');
-
-
 // ------------------------- EROSION & DILATION: *** THIS WORKS *** ------------------------
-
 // ERODE/DILATE MTR Sites to remove outliers
 //___1___
 var blank_mask = ee.Image(0);
@@ -194,17 +173,15 @@ Map.addLayer(final_buffer_out.sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 201
 //Export.image(MTR_1_clipped, '2015_MTR_clipped_Scene-3', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIII});
 //Export.image(MTR_1_clipped, '2015_MTR_clipped_Scene-4', {crs: lsat8_crs, crs_transform: lsat8_crs_transform, region: jsonCoordIV});
 //------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
 // ------------------------- AREA CALCULATION: *** IN PROGRESS *** ------------------------
-
+// Get a pixel area image, which will apply to any scale you provide
 var Area = ee.Image.pixelArea();
 function get_area(layerName, theLayer){
   var areaAll = theLayer.multiply(Area).reduceRegion({
     reducer: ee.Reducer.sum(),
     geometry: geometryIII,
     scale: 30,
-    crs: 'EPSG:3857',
+    crs: 'EPSG:3857', // Kroodsma did not include this option
     maxPixels: 1e9
   });
   var areaKmSq = ee.Number(areaAll.get('constant')).divide(1000*1000);
@@ -212,44 +189,7 @@ function get_area(layerName, theLayer){
   return areaKmSq;
 }
 get_area("2015 MTR Site Area in Km Sq: ", final_buffer_out);
-
-/*
-// Kroodsma Area Calculation Work:
-// Get a pixel area image, which will apply to any scale you provide
-var pixelArea = ee.Image.pixelArea();
-
-// Function to reduce region to get statistics of area
-function get_area(layerName, theLayer){
-  var areaIAll = theLayer.multiply(pixelArea).reduceRegion({
-    reducer: ee.Reducer.sum(),
-    geometry: geometryI, //campagna_study_area
-    scale: 30,
-    maxPixels: 1e9
-   });
-   var areaSqKm = ee.Number(areaIAll.get('constant')).divide(1000*1000);
-  print(layerName, areaSqKm);
-  return areaSqKm;
-}
-get_area("2015_MTR_Dilated_Scene-1 Area in Sq Km: ", final_buffer_out);
-
-// Get a pixel area image, which will apply to any scale you provide
-var pixelArea1 = ee.Image.pixelArea();
-
-function get_area1(layerName, theLayer){
-  var areaIAll = theLayer.multiply(pixelArea1).reduceRegion({
-    reducer: ee.Reducer.sum(),
-    geometry: geometryII,
-    scale: 30,
-    maxPixels: 1e9
-   });
-   var areaSqKm = ee.Number(areaIAll.get('constant')).divide(1000*1000);
-  print(layerName, areaSqKm);
-  return areaSqKm;
-}
-get_area1("MTR_1 Area2 in Sq Km: ", final_buffer_out);
-*/
 //---------------------------------------------------------------------------------------------------
-
 // ------------------------- VECTORIZATION OF MTR SITES: *** IN PROGRESS *** ------------------------
 
 var vector_MTR = MTR_1_clipped.reduceToVectors({
@@ -274,3 +214,4 @@ var vector_MTR = MTR_1_clipped.reduceToVectors({
 // - 5/26: Erosion/Dilation of MTR sites is now possible to remove artifact pixels
 // - 5/31: Export polygonized MTR sites
 // - 6/02: Script Cleanup to simpify for work currently In-Progress
+// - 6/06: Script Cleanup for overall simplification
