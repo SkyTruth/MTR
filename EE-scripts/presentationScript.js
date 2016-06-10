@@ -101,8 +101,13 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
     var palette = "fee5d9";
   }
   
-  // Add each layer to the map (warning, takes a while)
-  Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+ year));
+  // Add each layer to the map; only years divisible by 5 turned on by default (warning, takes a while)
+  if (year % 5 === 0){
+    Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+ year), true);
+  }
+  else {
+    Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+year), false);
+  }
   
   // Add each layer to a list, so as to build an ImageCollection
   allMTR_list.push(final_buffer_out);
