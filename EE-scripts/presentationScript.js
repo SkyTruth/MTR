@@ -28,6 +28,12 @@ Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
 // This list will contain all output images, so as to build an ImageCollection later
 var allMTR_list = [];
 
+// Subregions for exporting images/videos
+var geometryI   = ee.Geometry.Rectangle([-79.849, 37.3525, -82.421, 38.942]).toGeoJSON();
+var geometryII  = ee.Geometry.Rectangle([-82.421, 37.3525, -84.993, 38.942]).toGeoJSON();
+var geometryIII = ee.Geometry.Rectangle([-82.421, 35.763,  -84.993, 37.3525]).toGeoJSON();
+var geometryIV  = ee.Geometry.Rectangle([-79.849, 35.763,  -82.421, 37.3525]).toGeoJSON();
+
 /*--------------------------------- IMAGE PROCESSING ---------------------------------*/
 for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
   
@@ -109,23 +115,68 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
     Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+year), false);
   }
   
+  /* -------------------------------- EXPORTING ------------------------------------------- 
+  Comment out this section if you don't want to export anything*/
+  
+  // Set CRS and transform
+  var crs = yearImg.projection().atScale(30).getInfo()['crs'];
+  var transform = yearImg.projection().atScale(30).getInfo()['transform'];
+  
+  // Export each image to Gdrive; four regions (so many exports!)
+  Export.image.toDrive({
+      image: final_buffer_out,
+      description: "MTR"+year+"reg1",
+      region: geometryI,
+      crs: crs,
+      crsTransform: transform
+    });
+
+  Export.image.toDrive({
+      image: final_buffer_out,
+      description: "MTR"+year+"reg2",
+      region: geometryII,
+      crs: crs,
+      crsTransform: transform
+    });
+
+  Export.image.toDrive({
+      image: final_buffer_out,
+      description: "MTR"+year+"reg3",
+      region: geometryIII,
+      crs: crs,
+      crsTransform: transform
+    });
+      
+  Export.image.toDrive({
+      image: final_buffer_out,
+      description: "MTR"+year+"reg4",
+      region: geometryIV,
+      crs: crs,
+      crsTransform: transform
+    });
+      
+    
   // Add each layer to a list, so as to build an ImageCollection
   allMTR_list.push(final_buffer_out);
 }
 
 /* ------------------------- VIDEO OUTPUT ---------------------------------------------
-Create an ImageCollection of all images, and use that to export a video
+Create an ImageCollection of all images, and use that to export a video 
 
-var allMTR = ee.ImageCollection(allMTR_list);
+var allMTR = ee.ImageCollection(allMTR_list).map(function(image){
+  return image.addBands(image).addBands(image).uint8();
+});
+
+var exportbounds = campagna_study_area.geometry().bounds().getInfo();
 var video = Export.video.toDrive({
   collection: allMTR, 
   description: "MTRtimelapse",    // Filename, no spaces allowed
   framesPerSecond: 1,             // I.e., 1 year / second
-  dimensions: 800,
-  region: campagna_study_area,
-  scale: 60,                      // 60 m/pixel when exported, to match early LS
+  dimensions: 720,
+  region: exportbounds,
+  scale: 1000,                    // 60 m/pixel when exported, to match early LS
   });
-*/
+//*/
 
 
 
