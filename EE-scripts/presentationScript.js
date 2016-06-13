@@ -144,7 +144,7 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
     });
 
   Export.image.toDrive({
-      image: final_buffer_out,
+      image: final_buffer_out.unmask(0),
       description: "MTR"+year+"reg2",
       region: geometryII,
       scale: 90,
@@ -153,7 +153,7 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
     });
 
   Export.image.toDrive({
-      image: final_buffer_out,
+      image: final_buffer_out.unmask(0),
       description: "MTR"+year+"reg3",
       region: geometryIII,
       scale: 90,
@@ -162,7 +162,7 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
     });
       
   Export.image.toDrive({
-      image: final_buffer_out,
+      image: final_buffer_out.unmask(0),
       description: "MTR"+year+"reg4",
       region: geometryIV,
       scale: 90,
