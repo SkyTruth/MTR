@@ -126,7 +126,7 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
   // Export entire study region to GDrive (many images; one per year!)
   Export.image.toDrive({
       image: final_buffer_out.unmask(0),
-      description: "MTR"+year+"reg1",
+      description: "MTR"+year,
       region: exportbounds,
       scale: 90,
       //crs: crs,
