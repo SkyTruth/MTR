@@ -20,8 +20,8 @@ Map.addLayer(campagna_study_area, {}, "Study area");
 
 // Choose your favorite area of interest! Comment out all but one:
 //Map.centerObject(campagna_study_area);        // Full study extent
-Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
-//Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
+//Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
+Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
 //Map.setCenter(-83.224567, 37.355144, 11);     // Near Dice, KY
 //Map.setCenter(-83.931184, 36.533646, 12);     // Near Log Mountain, TN
 
@@ -33,6 +33,7 @@ var geometryI   = ee.Geometry.Rectangle([-79.849, 37.3525, -82.421, 38.942]).toG
 var geometryII  = ee.Geometry.Rectangle([-82.421, 37.3525, -84.993, 38.942]).toGeoJSON();
 var geometryIII = ee.Geometry.Rectangle([-82.421, 35.763,  -84.993, 37.3525]).toGeoJSON();
 var geometryIV  = ee.Geometry.Rectangle([-79.849, 35.763,  -82.421, 37.3525]).toGeoJSON();
+var exportbounds = campagna_study_area.geometry().bounds().getInfo();
 
 /*--------------------------------- IMAGE PROCESSING ---------------------------------*/
 for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
@@ -118,23 +119,35 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
   /* -------------------------------- EXPORTING ------------------------------------------- 
   Comment out this section if you don't want to export anything*/
   
-  // Set CRS and transform
-  var crs = yearImg.projection().atScale(30).getInfo()['crs'];
-  var transform = yearImg.projection().atScale(30).getInfo()['transform'];
-  
-  // Export each image to Gdrive; four regions (so many exports!)
+  // Set CRS and transform; create rectangular boundaries for exporting
+  //var crs = yearImg.projection().atScale(30).getInfo()['crs'];
+  //var transform = yearImg.projection().atScale(30).getInfo()['transform'];
+
+  // Export entire study region to GDrive (many images; one per year!)
   Export.image.toDrive({
-      image: final_buffer_out,
+      image: final_buffer_out.unmask(0),
+      description: "MTR"+year+"reg1",
+      region: exportbounds,
+      scale: 90,
+      //crs: crs,
+      //crsTransform: transform
+    });
+
+  /*// OR, export one or some of the subregions to GDrive (many images!) 
+  Export.image.toDrive({
+      image: final_buffer_out.unmask(0),
       description: "MTR"+year+"reg1",
       region: geometryI,
-      crs: crs,
-      crsTransform: transform
+      scale: 90,
+      //crs: crs,
+      //crsTransform: transform
     });
 
   Export.image.toDrive({
       image: final_buffer_out,
       description: "MTR"+year+"reg2",
       region: geometryII,
+      scale: 90,
       crs: crs,
       crsTransform: transform
     });
@@ -143,6 +156,7 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
       image: final_buffer_out,
       description: "MTR"+year+"reg3",
       region: geometryIII,
+      scale: 90,
       crs: crs,
       crsTransform: transform
     });
@@ -151,14 +165,17 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
       image: final_buffer_out,
       description: "MTR"+year+"reg4",
       region: geometryIV,
+      scale: 90,
       crs: crs,
       crsTransform: transform
     });
-      
+    */  
     
   // Add each layer to a list, so as to build an ImageCollection
   allMTR_list.push(final_buffer_out);
 }
+
+
 
 /* ------------------------- VIDEO OUTPUT ---------------------------------------------
 Create an ImageCollection of all images, and use that to export a video 
