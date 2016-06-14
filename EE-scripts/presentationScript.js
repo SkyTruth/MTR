@@ -13,20 +13,23 @@ var mask_input_60m = ee.Image('users/christian/60m-mask-total-area');
 var blank_mask = ee.Image(0);
 var mask_inverted_60m = blank_mask.where(mask_input_60m.lte(0),1);
 
-/* ----------------------------------- VISUALIZATION ------------------------------------
+/* ----------------------------------- VISUALIZATION / SETUP ------------------------------
 Adds Campagna study area; various areas of interest  */
 
 Map.addLayer(campagna_study_area, {}, "Study area");
 
 // Choose your favorite area of interest! Comment out all but one:
 //Map.centerObject(campagna_study_area);        // Full study extent
-//Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
-Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
+Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
+//Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
 //Map.setCenter(-83.224567, 37.355144, 11);     // Near Dice, KY
 //Map.setCenter(-83.931184, 36.533646, 12);     // Near Log Mountain, TN
 
 // This list will contain all output images, so as to build an ImageCollection later
 var allMTR_list = [];
+
+// This empty 2D array will be used for area calculation later
+var MTR_area = [[],[]];
 
 // Subregions for exporting images/videos
 var geometryI   = ee.Geometry.Rectangle([-79.849, 37.3525, -82.421, 38.942]).toGeoJSON();
@@ -36,16 +39,19 @@ var geometryIV  = ee.Geometry.Rectangle([-79.849, 35.763,  -82.421, 37.3525]).to
 var exportbounds = campagna_study_area.geometry().bounds().getInfo();
 
 /*--------------------------------- IMAGE PROCESSING ---------------------------------*/
-for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
+var year = 1984;
+for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   
   // Determine what imagery dataset to use, based off year loop; and what threshold to use
   if (year <= 2011){
     var imagery = ee.ImageCollection("LANDSAT/LT5_L1T_ANNUAL_GREENEST_TOA");
     //var NDVI_Threshold = 0.57635; // Per ROC analysis
+    var NDVIbands = 43;
   }
   else if (year == 2012){
     var imagery = ee.ImageCollection("LANDSAT/LE7_L1T_ANNUAL_GREENEST_TOA");
     //var NDVI_Threshold = 0.6156; // Per ROC analysis
+    var NDVIbands = 43;
   }
   else if (year >= 2013){
     var imagery = ee.ImageCollection("LANDSAT/LC8_L1T_ANNUAL_GREENEST_TOA");
@@ -87,25 +93,27 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
   var buffer_out_2 = buffer_out.where(MTR_in30.eq(0),0).where(MTR_in30.gte(0),1);
   var final_buffer_out = MTR_buffered_in.clip(campagna_study_area).add(buffer_out_2);
   
+  /*--------------------------------- IMAGE VISUALIZATION ---------------------------------*/
+  
   // Set color palette by year (http://colorbrewer2.org/?type=sequential&scheme=Reds&n=6)
   // Currently every five years are a different color (dark -> light over time)
   if (year <= 1988){
-    var palette = "a50f15";
+    var palette = "b30000";
   }
   else if (year > 1988 && year <= 1993 ){
-    var palette = "de2d26";
+    var palette = "e34a33";
   }
   else if (year > 1993 && year <= 1998){
-    var palette = "fb6a4a";
+    var palette = "fc8d59";
   }
   else if (year > 1998 && year <= 2003){
-    var palette = "fc9272";
+    var palette = "fdbb84";
   }
   else if (year > 2003 && year <= 2008){
-    var palette = "fcbba1";
+    var palette = "fdd49e";
   }
   else if (year > 2008){
-    var palette = "fee5d9";
+    var palette = "fef0d9";
   }
   
   // Add each layer to the map; only years divisible by 5 turned on by default (warning, takes a while)
@@ -116,24 +124,44 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
     Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+year), false);
   }
   
+  /*--------------------------------- AREA CALCULATION ---------------------------------
+  
+  // Get a pixel area image, which will apply to any scale you provide
+  var Area = ee.Image.pixelArea();
+
+  // The area calculation, which current burns out the server
+  var areaAll = final_buffer_out.multiply(Area).reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometryI,
+    scale: 30,
+    crs: 'EPSG:3857', // Kroodsma did not include this option
+    maxPixels: 1e9
+  });
+  var areaKmSq = ee.Number(areaAll.get('constant')).divide(1000*1000);
+  
+  // Add these areas and their corresponding year to 2D array
+  MTR_area[0].push(year);
+  MTR_area[1].push(areaKmSq);
+  */
+  
   /* -------------------------------- EXPORTING ------------------------------------------- 
-  Comment out this section if you don't want to export anything*/
+  Comment out this section if you don't want to export anything */
   
   // Set CRS and transform; create rectangular boundaries for exporting
   //var crs = yearImg.projection().atScale(30).getInfo()['crs'];
   //var transform = yearImg.projection().atScale(30).getInfo()['transform'];
 
-  // Export entire study region to GDrive (many images; one per year!)
+  /*// Export entire study region to GDrive (many images; one per year!)
   Export.image.toDrive({
       image: final_buffer_out.unmask(0),
-      description: "MTR"+year,
+      description: "MTR_"+year,
       region: exportbounds,
-      scale: 90,
+      scale: 900,
       //crs: crs,
       //crsTransform: transform
     });
 
-  /*// OR, export one or some of the subregions to GDrive (many images!) 
+  // OR, export one or some of the subregions to GDrive (many images!) 
   Export.image.toDrive({
       image: final_buffer_out.unmask(0),
       description: "MTR"+year+"reg1",
@@ -171,27 +199,24 @@ for (var year = 1984; year <= 2015; year++){ // Years of interest for the study
     });
     */  
     
-  // Add each layer to a list, so as to build an ImageCollection
+  // Add each layer to a list, so as to build an ImageCollection for Video
   allMTR_list.push(final_buffer_out);
 }
 
-
-
 /* ------------------------- VIDEO OUTPUT ---------------------------------------------
-Create an ImageCollection of all images, and use that to export a video 
+Create an ImageCollection of all images, and use that to export a video
 
 var allMTR = ee.ImageCollection(allMTR_list).map(function(image){
-  return image.addBands(image).addBands(image).uint8();
+  var unmasked = image.unmask(0);
+  return unmasked.addBands(unmasked).addBands(unmasked).uint8();
 });
 
-var exportbounds = campagna_study_area.geometry().bounds().getInfo();
-var video = Export.video.toDrive({
-  collection: allMTR, 
+Export.video.toDrive({
+  collection: allMTR,
   description: "MTRtimelapse",    // Filename, no spaces allowed
   framesPerSecond: 1,             // I.e., 1 year / second
-  dimensions: 720,
   region: exportbounds,
-  scale: 1000,                    // 60 m/pixel when exported, to match early LS
+  scale: 90,                     // Scale in m
   });
 //*/
 
