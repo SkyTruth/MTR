@@ -4,6 +4,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////*/
 var campagna_study_area = ee.FeatureCollection('ft:1Qo6AmhdEN44vPUpyGtzPtQUUO4rygWv4MljZ-MiE');
 // Get the link here: https://www.google.com/fusiontables/DataSource?docid=1Qo6AmhdEN44vPUpyGtzPtQUUO4rygWv4MljZ-MiE
+
 /*------------------------------------ SET NDVI THRESHOLD ----------------------------*/
 var NDVI_Threshold = 0.51;
 /*------------------------------------- IMPORT MASK -------------------------------------
@@ -27,6 +28,13 @@ Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
 
 // This list will contain all output images, so as to build an ImageCollection later
 var allMTR_list = [];
+
+// Subregions for exporting images/videos
+var geometryI   = ee.Geometry.Rectangle([-79.849, 37.3525, -82.421, 38.942]).toGeoJSON();
+var geometryII  = ee.Geometry.Rectangle([-82.421, 37.3525, -84.993, 38.942]).toGeoJSON();
+var geometryIII = ee.Geometry.Rectangle([-82.421, 35.763,  -84.993, 37.3525]).toGeoJSON();
+var geometryIV  = ee.Geometry.Rectangle([-79.849, 35.763,  -82.421, 37.3525]).toGeoJSON();
+var exportbounds = campagna_study_area.geometry().bounds().getInfo();
 
 /*--------------------------------- IMAGE SELECTION ---------------------------------
 Select the right imagery based off years */
@@ -74,7 +82,65 @@ var findMTR = allImagery.map(function(image) {
   var buffer_out = MTR_buffered_in.distance(ee.Kernel.euclidean(30,'meters'));
   var buffer_out_2 = buffer_out.where(MTR_in30.eq(0),0).where(MTR_in30.gte(0),1);
   var final_buffer_out = MTR_buffered_in.clip(campagna_study_area).add(buffer_out_2);
+
+  /* -------------------------------- EXPORTING ------------------------------------------- 
+  Comment out this section if you don't want to export anything
   
+  // Set CRS and transform; create rectangular boundaries for exporting
+  //var crs = ee.Image(image).projection().atScale(30).getInfo()['crs'];
+  //var transform = ee.Image(image).projection().atScale(30).getInfo()['transform'];
+  
+  var year = (ee.String(ee.Image(image).get("system:index")).slice(-4));
+  print(year);
+
+  // Export entire study region to GDrive (many images; one per year!)
+  Export.image.toDrive({
+      image: final_buffer_out.unmask(0),
+      description: "MTR "+ year,
+      region: exportbounds,
+      scale: 90,
+      //crs: crs,
+      //crsTransform: transform
+    });
+
+  // OR, export one or some of the subregions to GDrive (many images!) 
+  Export.image.toDrive({
+      image: final_buffer_out.unmask(0),
+      description: "MTR"+year+"reg1",
+      region: geometryI,
+      scale: 90,
+      //crs: crs,
+      //crsTransform: transform
+    });
+
+  Export.image.toDrive({
+      image: final_buffer_out.unmask(0),
+      description: "MTR"+year+"reg2",
+      region: geometryII,
+      scale: 90,
+      crs: crs,
+      crsTransform: transform
+    });
+
+  Export.image.toDrive({
+      image: final_buffer_out.unmask(0),
+      description: "MTR"+year+"reg3",
+      region: geometryIII,
+      scale: 90,
+      crs: crs,
+      crsTransform: transform
+    });
+      
+  Export.image.toDrive({
+      image: final_buffer_out.unmask(0),
+      description: "MTR"+year+"reg4",
+      region: geometryIV,
+      scale: 90,
+      crs: crs,
+      crsTransform: transform
+    });
+    */  
+    
   // Output from the mapped function
   return final_buffer_out;
 });
@@ -86,29 +152,29 @@ var outputList = findMTR.toList(50);
 var listLength = outputList.length().getInfo();
 
 // Run a loop to add each image from list to display
-for (var i = 0; i < listLength; i++) {
+for (var i = listLength-1; i > -1; i--) {
   // This gets the image's year metadata and converts it into a JS literal (because it's easier that way)
   var year = ee.Number(ee.String(ee.Image(outputList.get(i)).get("system:index")).slice(-4)).getInfo();
   
-  // Set color palette by year (http://colorbrewer2.org/?type=sequential&scheme=Reds&n=6)
+  // Set color palette by year (http://colorbrewer2.org/?type=sequential&scheme=OrRd&n=6)
   // Currently every five years are a different color (dark -> light over time)
   if (year <= 1988){
-    var palette = "a50f15";
+    var palette = "b30000";
   }
   else if (year > 1988 && year <= 1993 ){
-    var palette = "de2d26";
+    var palette = "e34a33";
   }
   else if (year > 1993 && year <= 1998){
-    var palette = "fb6a4a";
+    var palette = "fc8d59";
   }
   else if (year > 1998 && year <= 2003){
-    var palette = "fc9272";
+    var palette = "fdbb84";
   }
   else if (year > 2003 && year <= 2008){
-    var palette = "fcbba1";
+    var palette = "fdd493";
   }
   else if (year > 2008){
-    var palette = "fee5d9";
+    var palette = "fef0d9";
   }
 
   // For speed of display, only have years evenly divisible by 5 turned on by default
@@ -133,14 +199,12 @@ var allMTR = ee.ImageCollection(allMTR_list).map(function(image){
   return image.addBands(image).addBands(image).uint8();
 });
 
-var videobounds = campagna_study_area.geometry().bounds().getInfo();
 var video = Export.video.toDrive({
   collection: allMTR, 
   description: "MTRtimelapse",    // Filename, no spaces allowed
   framesPerSecond: 1,             // I.e., 1 year / second
-  dimensions: 800,
-  region: videobounds,
-  scale: 60,                      // 60 m/pixel when exported, to match early LS
+  region: exportbounds,
+  scale: 300
   });
 //*/
 
