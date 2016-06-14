@@ -82,6 +82,9 @@ var findMTR = allImagery.map(function(image) {
   var buffer_out = MTR_buffered_in.distance(ee.Kernel.euclidean(30,'meters'));
   var buffer_out_2 = buffer_out.where(MTR_in30.eq(0),0).where(MTR_in30.gte(0),1);
   var final_buffer_out = MTR_buffered_in.clip(campagna_study_area).add(buffer_out_2);
+  
+  // Add each layer to a list, so as to build an ImageCollection for Video
+  allMTR_list.push(final_buffer_out);
 
   /* -------------------------------- EXPORTING ------------------------------------------- 
   Comment out this section if you don't want to export anything
@@ -140,7 +143,7 @@ var findMTR = allImagery.map(function(image) {
       crsTransform: transform
     });
     */  
-    
+
   // Output from the mapped function
   return final_buffer_out;
 });
@@ -193,18 +196,26 @@ for (var i = listLength-1; i > -1; i--) {
 
 
 /* ------------------------- VIDEO OUTPUT ---------------------------------------------
-Create an ImageCollection of all images, and use that to export a video 
+// Create an ImageCollection of all images, and use that to export a video 
 
-var allMTR = ee.ImageCollection(allMTR_list).map(function(image){
-  return image.addBands(image).addBands(image).uint8();
+var reversedList = allMTR_list.reverse();
+var allMTR = ee.ImageCollection(reversedList).map(function(image){
+  return image.visualize({
+    forceRgbOutput: true,
+    palette: ["000000", "fdbb84"],
+    min: 0,
+    max: 1
+  });
 });
 
-var video = Export.video.toDrive({
-  collection: allMTR, 
+var HobetBounds = ee.Geometry.Rectangle([-82.015, 38.0413, -81.8447, 38.137]);
+
+Export.video.toDrive({
+  collection: allMTR,
   description: "MTRtimelapse",    // Filename, no spaces allowed
   framesPerSecond: 1,             // I.e., 1 year / second
-  region: exportbounds,
-  scale: 300
+  region: HobetBounds,
+  scale: 60,                     // Scale in m
   });
 //*/
 
