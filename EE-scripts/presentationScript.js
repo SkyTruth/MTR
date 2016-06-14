@@ -39,7 +39,6 @@ var geometryIV  = ee.Geometry.Rectangle([-79.849, 35.763,  -82.421, 37.3525]).to
 var exportbounds = campagna_study_area.geometry().bounds().getInfo();
 
 /*--------------------------------- IMAGE PROCESSING ---------------------------------*/
-var year = 1984;
 for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   
   // Determine what imagery dataset to use, based off year loop; and what threshold to use
@@ -95,7 +94,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   
   /*--------------------------------- IMAGE VISUALIZATION ---------------------------------*/
   
-  // Set color palette by year (http://colorbrewer2.org/?type=sequential&scheme=Reds&n=6)
+  // Set color palette by year (http://colorbrewer2.org/?type=sequential&scheme=OrRd&n=6)
   // Currently every five years are a different color (dark -> light over time)
   if (year <= 1988){
     var palette = "b30000";
@@ -121,7 +120,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
     Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+ year), true);
   }
   else {
-    Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+year), false);
+    Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+ year), false);
   }
   
   /*--------------------------------- AREA CALCULATION ---------------------------------
@@ -204,19 +203,26 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
 }
 
 /* ------------------------- VIDEO OUTPUT ---------------------------------------------
-Create an ImageCollection of all images, and use that to export a video
+// Create an ImageCollection of all images and use that to export a video
 
-var allMTR = ee.ImageCollection(allMTR_list).map(function(image){
-  var unmasked = image.unmask(0);
-  return unmasked.addBands(unmasked).addBands(unmasked).uint8();
+var reversedList = allMTR_list.reverse();
+var allMTR = ee.ImageCollection(reversedList).map(function(image){
+  return image.visualize({
+    forceRgbOutput: true,
+    palette: ["000000", "fdbb84"],
+    min: 0,
+    max: 1
+  });
 });
+
+var HobetBounds = ee.Geometry.Rectangle([-82.015, 38.0413, -81.8447, 38.137]);
 
 Export.video.toDrive({
   collection: allMTR,
   description: "MTRtimelapse",    // Filename, no spaces allowed
   framesPerSecond: 1,             // I.e., 1 year / second
-  region: exportbounds,
-  scale: 90,                     // Scale in m
+  region: HobetBounds,
+  scale: 60,                     // Scale in m
   });
 //*/
 
