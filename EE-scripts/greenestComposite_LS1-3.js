@@ -28,11 +28,10 @@ algorithm means it now does.)
 /*-------------------------------DATA AND VARIABLES--------------------------------------------------*/
 
 // USER VARIABLES
-var startYr = "1976"; // Beginning complete year of analysis
-var endYr = "1976";   // Ending complete year of analysis (could be same as beginning year)
+var startYr = "1975"; // Beginning complete year of analysis
+var endYr = "1977";   // Ending complete year of analysis (could be same as beginning year)
 var sensor = "L2";    // Desired Landsat sensor (just change the number to 1, 2, or 3)
 var extent = ee.FeatureCollection("ft:1sZzM7TFsdW0HDqewl4-zNAsSZCXEjAfPn8EYow5q"); // The study area extent (Campagna)
-
 
 // DATA (DO NOT MANIPULATE)
 
@@ -56,20 +55,47 @@ else {
   print("You didn't choose a sensor! Options are 'L1', 'L2', or 'L3'.");
 }
 
-
 /*-------------------------------PROCESSING STEPS--------------------------------------------------*/
 
 /* Create greenest (max NDVI) composite image
 The MSS sensors use B7 and B5 to perofrm NDVI calculation */
 
 var addNDVI = stack.map(function(image){
-  var TOA = ee.Algorithms.Landsat.TOA(image); // The TOA calcuation from DN
-  var ndvi = TOA.normalizedDifference(["B7", "B5"]);
-  return image.addBands(ndvi)
+  // The TOA calcuation from DN
+  var TOA = ee.Algorithms.Landsat.TOA(image).clip(extent);
+  
+  // Get rid of errors (exceedingly high or low values) in imagery 
+  var B4 = TOA.select("B4");
+  var B5 = TOA.select("B5");
+  var B7 = TOA.select("B7");
+  var errorMask = ee.Image(0).where(B4.gte(0.065).and(B5.gte(0.033)).and(B7.lte(0.32)),1);
+  var cleanedImage = TOA.updateMask(errorMask);
+  
+  // This mask procedure based off Braaten, Cohen, and Yang 2015, who tried to mask clouds from MSS ("Automated Cloud and Cloud Shadow Identification in Landsat MSS Imagery for Temperate Ecosystems", Remote Sensing of Environment 169)
+  var NDGR = cleanedImage.normalizedDifference(["B4","B5"]); // Not NDVI
+  var B4img = cleanedImage.select("B4");
+  var cloud1 = ee.Image(0).where((NDGR.gt(0).and(B4img.gt(0.175))).or(B4img.gt(0.39)),1);
+  var cloud2 = cloud1.updateMask(cloud1);
+  var cloud3 = cloud2.connectedPixelCount().reproject("EPSG:3857", undefined, 60);
+  var cloud4a = cloud3.where(cloud3.gte(9),1);
+  var cloud4b = cloud4a.where(cloud3.lt(9),0);
+  var cloud5 = cloud4b.updateMask(cloud4b);
+  var cloud6 = cloud5.reduceNeighborhood(ee.call("Reducer.max"), ee.call("Kernel.square", 150, "meters"), undefined, false);
+  var cloudMask = cloud5.unmask().remap([0,1],[1,0]);
+
+  // The NDVI calculation; note the band combination used for MSS
+  var ndvi = cleanedImage.updateMask(cloudMask).normalizedDifference(["B7", "B5"]).resample("bilinear");
+  return cleanedImage.addBands(ndvi)
     .rename(["B4", "B5", "B6", "B7", "NDVI"]);
 });
 var greenest = addNDVI.qualityMosaic("NDVI"); // This builds the composite
 
+/*-------------------------------VISUALIZATION--------------------------------------------------*/
 
-Map.addLayer(greenest);
-Map.centerObject(extent);
+// Identifying mines, just for demonstration purposes
+var NDVIimg = greenest.select("NDVI");
+var mines = greenest.updateMask(NDVIimg.where(NDVIimg.lte(0.51),1).where(NDVIimg.gt(0.51),0));
+
+Map.addLayer(greenest, {bands:"NDVI", min:0.2, max:0.8}, "NDVI");
+//Map.addLayer(mines, {bands:"NDVI", palette:"ff0000"}, "Mines (0.51 thresh)");
+Map.centerObject(extent,10);
