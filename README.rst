@@ -7,10 +7,10 @@ This repository contains SkyTruth's Mountaintop Removal (MTR) Mining related wor
 
 Goals:
 ======
-To produce a comprehensive map of MTR mining activity in Appalachia
-To effectively measure the burden of reclamation
-To infill gaps in the 2007 SkyTruth study, as well as update it with data from after 2005
-To create an automated method of classifying MTR mining activity, in such a manner that it will be easily updated in the future.
+1. To produce a comprehensive map of MTR mining activity in Appalachia
+2. To effectively measure the burden of reclamation
+3. To infill gaps in the 2007 SkyTruth study, as well as update it with data from after 2005
+4. To create an automated method of classifying MTR mining activity, in such a manner that it will be easily updated in the future.
 
 
 
