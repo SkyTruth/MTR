@@ -2,6 +2,8 @@
 Mountain Top Removal
 ====================
 
+This is a repository for all Mountaintop Removal Mining related Earth Engine Scripts, utilities, analysis, and QA/QC processes. 
+
 License
 =======
 
