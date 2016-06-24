@@ -2,16 +2,17 @@
    This script was created by SkyTruth to identify possible active mountaintop removal 
    and other surface coal mining.
 ///////////////////////////////////////////////////////////////////////////////////////*/
+
+/*------------------------------------ IMPORT STUDY AREA ----------------------------*/
 var campagna_study_area = ee.FeatureCollection('ft:1Qo6AmhdEN44vPUpyGtzPtQUUO4rygWv4MljZ-MiE');
 // Get the link here: https://www.google.com/fusiontables/DataSource?docid=1Qo6AmhdEN44vPUpyGtzPtQUUO4rygWv4MljZ-MiE
-/*------------------------------------ SET NDVI THRESHOLD ----------------------------*/
+
+/*------------------------------------ SET NDVI THRESHOLD ---------------------------*/
 var NDVI_Threshold = 0.51;
-/*------------------------------------- IMPORT MASK -------------------------------------
-Imports 60 meter mask/creates variable containing imported mask */
+
+/*------------------------------------- IMPORT MASK ---------------------------------*/
 var mask_input_60m = ee.Image('users/christian/60m-mask-total-area');
 //'https://drive.google.com/file/d/0ByjSOOGMRVf5aUpLa01aX0FXR0U/view?usp=sharing'
-var blank_mask = ee.Image(0);
-var mask_inverted_60m = blank_mask.where(mask_input_60m.lte(0),1);
 
 /* ----------------------------------- VISUALIZATION / SETUP ------------------------------
 Adds Campagna study area; various areas of interest  */
@@ -20,15 +21,15 @@ Map.addLayer(campagna_study_area, {}, "Study area");
 
 // Choose your favorite area of interest! Comment out all but one:
 //Map.centerObject(campagna_study_area);        // Full study extent
-Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
-//Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
+//Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
+Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
 //Map.setCenter(-83.224567, 37.355144, 11);     // Near Dice, KY
 //Map.setCenter(-83.931184, 36.533646, 12);     // Near Log Mountain, TN
 
-// This list will contain all output images, so as to build an ImageCollection later
+// This list will contain all output images, so as to build an ImageCollection later for video export
 var allMTR_list = [];
 
-// This empty 2D array will be used for area calculation later
+// This empty 2D array will be used for area calculation later (if performed)
 var MTR_area = [[],[]];
 
 // Subregions for exporting images/videos
@@ -44,54 +45,46 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   // Determine what imagery dataset to use, based off year loop; and what threshold to use
   if (year <= 2011){
     var imagery = ee.ImageCollection("LANDSAT/LT5_L1T_ANNUAL_GREENEST_TOA");
-    //var NDVI_Threshold = 0.57635; // Per ROC analysis
     var NDVIbands = 43;
   }
   else if (year == 2012){
     var imagery = ee.ImageCollection("LANDSAT/LE7_L1T_ANNUAL_GREENEST_TOA");
-    //var NDVI_Threshold = 0.6156; // Per ROC analysis
     var NDVIbands = 43;
   }
   else if (year >= 2013){
     var imagery = ee.ImageCollection("LANDSAT/LC8_L1T_ANNUAL_GREENEST_TOA");
-    //var NDVI_Threshold = 0.5665; // Per ROC analysis
     var NDVIbands = 54; // Because different bands are needed for LS8
   }
   
   // Select specific year for analysis
   var yearImg = ee.Image(imagery
     .filterDate(year+"-01-01", year+"-12-31")
-    .first());
+    .first())
+    .clip(campagna_study_area);
   
   // Calculate NDVI (using normalizedDifference function; select correct bands per sensor)
   if (NDVIbands == 54){
-    var NDVI = yearImg.normalizedDifference(["B5","B4"]);
+    var NDVI = yearImg.normalizedDifference(["B5","B4"]).clip(campagna_study_area);
   }
   else {
-    var NDVI = yearImg.normalizedDifference(["B4","B3"]);
+    var NDVI = yearImg.normalizedDifference(["B4","B3"]).clip(campagna_study_area);
   }
   
   // Create a mask of areas that ARE NOT mines (value of 1 to locations where NDVI is <= threshold)
-  var blank = ee.Image(0);
-  var lowNDVI = blank.where(NDVI.lte(NDVI_Threshold),1);
+  var lowNDVI = NDVI.where(NDVI.lte(NDVI_Threshold),1).where(NDVI.gt(NDVI_Threshold),0);
   
   // Create binary image containing the intersection between the LowNDVI and anywhere the inverted mask is 1
-  var MTR = lowNDVI.and(mask_inverted_60m);
-  
-  // Clip MTR to extent of the Campagna study area
-  var MTR_clipped = MTR.clip(campagna_study_area);
+  var MTR = lowNDVI.and(mask_input_60m.eq(0));
   
   // Erode/dilate MTR sites to remove outliers (pixel clean-up)
-  var blank = ee.Image(0);
-  var MTR_invert = blank.where(MTR_clipped.eq(0),1).where(MTR_clipped.eq(1),0);
-  var MTR_invert_buffer = MTR_invert.distance(ee.Kernel.euclidean(30,'meters')).where(MTR_invert.eq(0),1).where(MTR_invert.eq(1),0);
-  var MTR_in30 = MTR_clipped.subtract(MTR_invert_buffer);
-  var final_invert = blank.where(MTR_in30.eq(0),0).where(MTR_in30.gte(0),1);
-  var MTR_buffered_in = blank.where(final_invert.eq(0),1).where(final_invert.eq(1),0);
-  var buffer_out = MTR_buffered_in.distance(ee.Kernel.euclidean(30,'meters'));
-  var buffer_out_2 = buffer_out.where(MTR_in30.eq(0),0).where(MTR_in30.gte(0),1);
-  var final_buffer_out = MTR_buffered_in.clip(campagna_study_area).add(buffer_out_2);
+  var MTR_eroded_dialated_dialated_eroded = MTR
+    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(30, 'meters'))
+    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters'))
+    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters'))
+    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(30, 'meters'));
   
+  var MTR_masked = MTR_eroded_dialated_dialated_eroded.updateMask(MTR_eroded_dialated_dialated_eroded);
+
   /*--------------------------------- IMAGE VISUALIZATION ---------------------------------*/
   
   // Set color palette by year (http://colorbrewer2.org/?type=sequential&scheme=OrRd&n=6)
@@ -117,10 +110,10 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   
   // Add each layer to the map; only years divisible by 5 turned on by default (warning, takes a while)
   if (year % 5 === 0){
-    Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+ year), true);
+    Map.addLayer(MTR_masked, {palette: palette}, ("MTR "+ year), true);
   }
   else {
-    Map.addLayer(final_buffer_out, {palette: palette}, ("MTR "+ year), false);
+    Map.addLayer(MTR_masked, {palette: palette}, ("MTR "+ year), false);
   }
   
   /*--------------------------------- AREA CALCULATION ---------------------------------
@@ -129,7 +122,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   var Area = ee.Image.pixelArea();
 
   // The area calculation, which current burns out the server
-  var areaAll = final_buffer_out.multiply(Area).reduceRegion({
+  var areaAll = MTR_masked.multiply(Area).reduceRegion({
     reducer: ee.Reducer.sum(),
     geometry: geometryI,
     scale: 30,
@@ -152,7 +145,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
 
   /*// Export entire study region to GDrive (many images; one per year!)
   Export.image.toDrive({
-      image: final_buffer_out.unmask(0),
+      image: MTR_masked.unmask(0),
       description: "MTR_"+year,
       region: exportbounds,
       scale: 900,
@@ -162,7 +155,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
 
   // OR, export one or some of the subregions to GDrive (many images!) 
   Export.image.toDrive({
-      image: final_buffer_out.unmask(0),
+      image: MTR_masked.unmask(0),
       description: "MTR"+year+"reg1",
       region: geometryI,
       scale: 90,
@@ -171,7 +164,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
     });
 
   Export.image.toDrive({
-      image: final_buffer_out.unmask(0),
+      image: MTR_masked.unmask(0),
       description: "MTR"+year+"reg2",
       region: geometryII,
       scale: 90,
@@ -180,7 +173,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
     });
 
   Export.image.toDrive({
-      image: final_buffer_out.unmask(0),
+      image: MTR_masked.unmask(0),
       description: "MTR"+year+"reg3",
       region: geometryIII,
       scale: 90,
@@ -189,7 +182,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
     });
       
   Export.image.toDrive({
-      image: final_buffer_out.unmask(0),
+      image: MTR_masked.unmask(0),
       description: "MTR"+year+"reg4",
       region: geometryIV,
       scale: 90,
@@ -199,7 +192,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
     */  
     
   // Add each layer to a list, so as to build an ImageCollection for Video
-  allMTR_list.push(final_buffer_out);
+  allMTR_list.push(MTR_masked);
 }
 
 /* ------------------------- VIDEO OUTPUT ---------------------------------------------
@@ -228,42 +221,10 @@ Export.video.toDrive({
 
 
 
-// DISPLAY UN-PROCESSED MTR SITES (no erode/dilate)
-/*
-Map.addLayer(MTR_2014.clip(campagna_study_area).sldStyle(sld_intervals1), {min:0, max:1}, 'MTR 2014');
-Map.addLayer(MTR_2013.clip(campagna_study_area).sldStyle(sld_intervals1), {min:0, max:1}, 'MTR 2013');
-Map.addLayer(MTR_2012.clip(campagna_study_area).sldStyle(sld_intervals1), {min:0, max:1}, 'MTR 2012');
-Map.addLayer(MTR_2011.clip(campagna_study_area).sldStyle(sld_intervals1), {min:0, max:1}, 'MTR 2011');
-Map.addLayer(MTR_2010.clip(campagna_study_area).sldStyle(sld_intervals1), {min:0, max:1}, 'MTR 2010');
 
-Map.addLayer(MTR_2009.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2009');
-Map.addLayer(MTR_2008.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2008');
-Map.addLayer(MTR_2007.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2007');
-Map.addLayer(MTR_2006.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2006');
-Map.addLayer(MTR_2005.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2005');
-Map.addLayer(MTR_2004.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2004');
-Map.addLayer(MTR_2003.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2003');
-Map.addLayer(MTR_2002.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2002');
-Map.addLayer(MTR_2001.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2001');
-Map.addLayer(MTR_2000.clip(campagna_study_area).sldStyle(sld_intervals2), {min:0, max:1}, 'MTR 2000');
-
-Map.addLayer(MTR_1999.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1999');
-Map.addLayer(MTR_1998.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1998');
-Map.addLayer(MTR_1997.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1997');
-Map.addLayer(MTR_1996.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1996');
-Map.addLayer(MTR_1995.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1995');
-Map.addLayer(MTR_1994.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1994');
-Map.addLayer(MTR_1993.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1993');
-Map.addLayer(MTR_1992.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1992');
-Map.addLayer(MTR_1991.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1991');
-Map.addLayer(MTR_1990.clip(campagna_study_area).sldStyle(sld_intervals3), {min:0, max:1}, 'MTR 1990');
-
-Map.addLayer(MTR_1989.clip(campagna_study_area).sldStyle(sld_intervals4), {min:0, max:1}, 'MTR 1989');
-Map.addLayer(MTR_1988.clip(campagna_study_area).sldStyle(sld_intervals4), {min:0, max:1}, 'MTR 1988');
-Map.addLayer(MTR_1987.clip(campagna_study_area).sldStyle(sld_intervals4), {min:0, max:1}, 'MTR 1987');
-Map.addLayer(MTR_1986.clip(campagna_study_area).sldStyle(sld_intervals4), {min:0, max:1}, 'MTR 1986');
-Map.addLayer(MTR_1985.clip(campagna_study_area).sldStyle(sld_intervals4), {min:0, max:1}, 'MTR 1985');
-Map.addLayer(MTR_1984.clip(campagna_study_area).sldStyle(sld_intervals4), {min:0, max:1}, 'MTR 1984');
+//------------------------------------ Work in Progress ------------------------------------
+// Code below this point is still being tested, run at your own risk...
+// This is all copied from old code, so variable references are likely broken 
 
 /* ------------------- Total Reclaimed Mine Classification: -------------------
  Areas which are classified as mine land in earlier image but not later image, are now
@@ -273,4 +234,57 @@ Map.addLayer(MTR_1984.clip(campagna_study_area).sldStyle(sld_intervals4), {min:0
 //Map.addLayer(reclaimed.sldStyle(sld_intervals5), {min:0, max:1}, 'Reclaimed Mine Land');
 
 
+// Vectorizing MTR Sites
+// Derived from: https://developers.google.com/earth-engine/reducers_reduce_to_vectors
+// Define thresholds on the MTR image.
+/*
+var zones = MTR_1.gt(0).add(MTR_1.gt(1));
+zones = zones.updateMask(zones.neq(0));
+var Vectorized_MTR_1 = MTR_1.reduceToVectors({
+  geometry: TEST_GEOM,
+  //geometry: fc,
+  geometryType: 'polygon',
+  crs: lsat8_crs,
+  crsTransform: lsat8_crs_transform,
+  eightConnected: false,
+  maxPixels: 1e9,
+  labelProperty: '1',
+});
+//Map.addLayer(Vectorized_MTR_1,{palette:['000000']}, 'vector');
+var display = ee.Image(0).updateMask(0).paint(Vectorized_MTR_1, '000000', 2);
+//Map.addLayer(display, {palette:['ff8700']}, 'vectorized_MTR_1');
+//Map.addLayer(fc);
+*/
+
+/*
+// Kroodsma Area Calculation Work:
+// Get a pixel area image, which will apply to any scale you provide
+var pixelArea = ee.Image.pixelArea();
+// Function to reduce region to get statistics of area
+function get_area(layerName, theLayer){
+  var areaIAll = theLayer.multiply(pixelArea).reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometryI,
+    scale: 30,
+    maxPixels: 1e9
+   });
+   var areaSqKm = ee.Number(areaIAll.get('constant')).divide(1000*1000);
+  print(layerName, areaSqKm);
+  return areaSqKm;
+}
+get_area("MTR_1 Area in Sq Km: ", MTR_1);
+// Get a pixel area image, which will apply to any scale you provide
+var PA = ee.Image.pixelArea();
+function GA(layerName, theLayer){
+  var areaIAll = theLayer.multiply(PA).reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: geometryII,
+    scale: 30,
+    maxPixels: 1e9
+   });
+   var areaSqKm = ee.Number(areaIAll.get('constant')).divide(1000*1000);
+  print(layerName, areaSqKm);
+  return areaSqKm;
+}
+GA("MTR_1 Area2 in Sq Km: ", MTR_1);
 */
