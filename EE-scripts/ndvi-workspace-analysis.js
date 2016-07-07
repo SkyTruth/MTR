@@ -3,7 +3,7 @@
    and other surface coal mining. This script is the full, complete version for analysis,
    meaning it will take a long time to run. 
    
-   Playground code: https://code.earthengine.google.com/56385c427255ab3848b6ae0c27a0c8fa
+   Playground code: https://code.earthengine.google.com/50aa476aa01b583a5b0cdf351c83dda5
 ///////////////////////////////////////////////////////////////////////////////////////*/
 
 /*------------------------------------ IMPORT STUDY AREA ----------------------------*/
@@ -36,9 +36,9 @@ var allMTR_list = [];
 var MTR_area = [[],[]];
 
 // Subregions for exporting images/videos
-var geometryI   = ee.Geometry.Rectangle([-79.849, 37.3525, -82.421, 38.942]).toGeoJSON();
+var geometryI   = ee.Geometry.Rectangle([-79.612, 37.3525, -82.421, 39.037]).toGeoJSON();
 var geometryII  = ee.Geometry.Rectangle([-82.421, 37.3525, -84.993, 38.942]).toGeoJSON();
-var geometryIII = ee.Geometry.Rectangle([-82.421, 35.763,  -84.993, 37.3525]).toGeoJSON();
+var geometryIII = ee.Geometry.Rectangle([-82.421, 35.637,  -85.811, 37.3525]).toGeoJSON();
 var geometryIV  = ee.Geometry.Rectangle([-79.849, 35.763,  -82.421, 37.3525]).toGeoJSON();
 var exportbounds =studyArea.geometry().bounds().getInfo();
 
