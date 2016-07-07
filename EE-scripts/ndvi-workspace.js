@@ -1,6 +1,8 @@
 /*///////////////////////////////////////////////////////////////////////////////////////
    This script was created by SkyTruth to identify possible active mountaintop removal 
    and other surface coal mining.
+   
+   Playground code: https://code.earthengine.google.com/56385c427255ab3848b6ae0c27a0c8fa
 ///////////////////////////////////////////////////////////////////////////////////////*/
 
 /*------------------------------------ IMPORT STUDY AREA ----------------------------*/
