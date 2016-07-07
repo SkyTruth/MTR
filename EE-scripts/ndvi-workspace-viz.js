@@ -2,7 +2,7 @@
    This script was created by SkyTruth to identify possible active mountaintop removal 
    and other surface coal mining.
    
-   Playground code: https://code.earthengine.google.com/0e67d2d2bd667cef5b25edd9d224ccde
+   Playground code: https://code.earthengine.google.com/19cfa379f71f21caa5357daad2b19dc7
 ///////////////////////////////////////////////////////////////////////////////////////*/
 
 /*------------------------------------ IMPORT STUDY AREA ----------------------------*/
@@ -35,9 +35,9 @@ var allMTR_list = [];
 var MTR_area = [[],[]];
 
 // Subregions for exporting images/videos
-var geometryI   = ee.Geometry.Rectangle([-79.849, 37.3525, -82.421, 38.942]).toGeoJSON();
+var geometryI   = ee.Geometry.Rectangle([-79.612, 37.3525, -82.421, 39.037]).toGeoJSON();
 var geometryII  = ee.Geometry.Rectangle([-82.421, 37.3525, -84.993, 38.942]).toGeoJSON();
-var geometryIII = ee.Geometry.Rectangle([-82.421, 35.763,  -84.993, 37.3525]).toGeoJSON();
+var geometryIII = ee.Geometry.Rectangle([-82.421, 35.367,  -85.811, 37.3525]).toGeoJSON();
 var geometryIV  = ee.Geometry.Rectangle([-79.849, 35.763,  -82.421, 37.3525]).toGeoJSON();
 var exportbounds = campagna_study_area.geometry().bounds().getInfo();
 
