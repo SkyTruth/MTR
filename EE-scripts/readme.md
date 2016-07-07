@@ -1,6 +1,16 @@
 ## About These Scripts
 
-What scripts are in this folder? Describe here.
+**What scripts are in this folder? Describe here.**
+
+`OtsuThresholds.js` : Script to derive yearly NDVI threshold, based on Otsu method
+
+`greenestComposite_LS1-3.js` : Script to create greenest pixel composites for early Landsat satellites
+
+`ndvi-builder-classifier.js` : **Old version of analysis script; can this be archived?**
+
+`ndvi-workspace-analysis.js` : Current version of mining extent script; full version used for analysis
+
+`ndvi-workspace-viz.js` : Mining extent script optimized for visualization purposes
 
 ## Other Snippets
 
