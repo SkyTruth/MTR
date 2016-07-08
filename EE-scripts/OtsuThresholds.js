@@ -1,6 +1,8 @@
 /* AUTOMATIC IMAGE THRESHOLDING FROM THE OTSU METHOD
 Andrew Pericak, June 2016
 
+Playground link: https://code.earthengine.google.com/ff1d4d7414c2de8016b69e9caf2bdba7
+
 This script will automatically determine NDVI thresholds over mined landscapes. It uses the
 Otsu method, which is a common image thresholding algorithm, to derive the threshold. The
 Otsu method assumes a grayscale image (in our case, a one-band image of NDVI, which is also
@@ -30,16 +32,16 @@ IEEE Transactions on Systems, Man, and Cybernetics, vol SMC-9, no. 1, 1979.
 
 /* -------------------------- PROCEDURE -------------------------------------------------
 
-1) Set line 86 to false (lowercase)
+1) Set line 88 to false (lowercase)
 
-2) Set line 95 to one of the following:
+2) Set line 97 to one of the following:
   LANDSAT/LT5_L1T   for 1984 - 2011
   LANDSAT/LE7_L1T   for 2012
   LANDSAT/LC8_L1T   for 2013 - 2015
   
-3) Set line 97 to the desired year of analysis (change the year twice for beginning and end date)
+3) Set line 99 to the desired year of analysis (change the year twice for beginning and end date)
 
-4) Set line 106 to either ["B4","B3"] for Landsat 5/7, or ["B5,"B4"] for Landsat 8
+4) Set line 108 to either ["B4","B3"] for Landsat 5/7, or ["B5,"B4"] for Landsat 8
 
 5) Press "Run"; this adds the max-NDVI (greenest pixel) layer to the map, where black is low NDVI values 
 
@@ -52,14 +54,14 @@ IEEE Transactions on Systems, Man, and Cybernetics, vol SMC-9, no. 1, 1979.
    extent (i.e., the entire extent of the NDVI area); but, the points should always be over mines (i.e.,
    don't put points on forested areas, or in masked out areas.)
    
-8) Change line 86 back to true (lowercase)
+8) Change line 88 back to true (lowercase)
 
 9) Scroll to the top of this code window to the Imports section. Click the small blue square with lines
    on it. Copy the entire list of coordinate pairs (beginning with [[ and ending with ]]). You don't
    need to copy any of the extra information. Make sure that you're copying the coordinate list for 
    the correct analysis year!
    
-10) Paste the list of coordinates from line 120 to line 149, making sure the list starts with [[ and 
+10) Paste the list of coordinates from line 122 to line 151, making sure the list starts with [[ and 
     ends with ]].
     
 11) Press "Run". The processing will now occur, and this will take awhile, so your browser tab will 
@@ -78,7 +80,7 @@ IEEE Transactions on Systems, Man, and Cybernetics, vol SMC-9, no. 1, 1979.
     the remaining 7 are uncommented. Then, press "Run" again, and the Console should relatively quickly
     deliver the remaining 7 thresholds. 
     
-14) Copy the entire list of coordinate pairs you used (lines 120 to 149) and paste it into the third
+14) Copy the entire list of coordinate pairs you used (lines 122 to 151) and paste it into the third
     table of the spreadsheet linked above (the tab "coordinatePairs").
 
 /* -------------------------- IMAGERY AND SAMPLE LOCATIONS ------------------------------ */
@@ -86,7 +88,7 @@ IEEE Transactions on Systems, Man, and Cybernetics, vol SMC-9, no. 1, 1979.
 var runThreshold = false; // Whether to run the Otsu processing or not (for viz)
 
 // Import magic mask
-var mask = ee.Image("users/jerrilyn/2015mask-PM").remap([0,1],[1,0]);
+var mask = ee.Image("users/jerrilyn/2015mask-PM-fullstudy-area").remap([0,1],[1,0]);
 
 // Import study area extent
 var extent = ee.FeatureCollection("ft:1sZzM7TFsdW0HDqewl4-zNAsSZCXEjAfPn8EYow5q").geometry();
