@@ -1,7 +1,7 @@
 /* AUTOMATIC IMAGE THRESHOLDING FROM THE OTSU METHOD
 Andrew Pericak, June 2016
 
-Playground link: https://code.earthengine.google.com/b808c250319deff08ca05f6f24928d1b
+Playground link: https://code.earthengine.google.com/229fe2dcffeede77c157877e9d33e10f
 
 This script will automatically determine NDVI thresholds over mined landscapes. It uses the
 Otsu method, which is a common image thresholding algorithm, to derive the threshold. The
