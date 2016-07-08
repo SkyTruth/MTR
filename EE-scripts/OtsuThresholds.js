@@ -1,7 +1,7 @@
 /* AUTOMATIC IMAGE THRESHOLDING FROM THE OTSU METHOD
 Andrew Pericak, June 2016
 
-Playground link: https://code.earthengine.google.com/ff1d4d7414c2de8016b69e9caf2bdba7
+Playground link: https://code.earthengine.google.com/b808c250319deff08ca05f6f24928d1b
 
 This script will automatically determine NDVI thresholds over mined landscapes. It uses the
 Otsu method, which is a common image thresholding algorithm, to derive the threshold. The
@@ -91,12 +91,12 @@ var runThreshold = false; // Whether to run the Otsu processing or not (for viz)
 var mask = ee.Image("users/jerrilyn/2015mask-PM-fullstudy-area").remap([0,1],[1,0]);
 
 // Import study area extent
-var extent = ee.FeatureCollection("ft:1sZzM7TFsdW0HDqewl4-zNAsSZCXEjAfPn8EYow5q").geometry();
+var extent = ee.FeatureCollection("ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U").geometry();
 
 // Import surface reflectance imagery for one calendar year, using a specified sensor
-var imagery = ee.ImageCollection("LANDSAT/LT5_L1T")
+var imagery = ee.ImageCollection("LANDSAT/LC8_L1T")
   .filterBounds(extent)
-  .filterDate("1984-01-01", "1984-12-31");
+  .filterDate("2015-01-01", "2015-12-31");
 
 // Create the greenest pixel composite and extract image of just that band
 var greenestComposite = imagery.map(function(image){
@@ -105,7 +105,7 @@ var greenestComposite = imagery.map(function(image){
   var new_mask = min_mask.min(sat_mask).focal_min(3);
   var toa = ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
   var masked = toa.updateMask(mask);
-  var ndvi = masked.normalizedDifference(["B4","B3"]);
+  var ndvi = masked.normalizedDifference(["B5","B4"]);
   return masked.addBands(ndvi);
 });
 var greenest = greenestComposite.qualityMosaic("nd").clip(extent);
