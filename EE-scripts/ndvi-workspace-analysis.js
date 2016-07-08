@@ -3,7 +3,7 @@
    and other surface coal mining. This script is the full, complete version for analysis,
    meaning it will take a long time to run. 
    
-   Playground code: https://code.earthengine.google.com/50aa476aa01b583a5b0cdf351c83dda5
+   Playground code: https://code.earthengine.google.com/ac5b19be02c8eaaac9e0d94896ab4dd5
 ///////////////////////////////////////////////////////////////////////////////////////*/
 
 /*------------------------------------ IMPORT STUDY AREA ----------------------------*/
@@ -14,8 +14,8 @@ var studyArea = ee.FeatureCollection('ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h
 var NDVI_Threshold = 0.51; // In future versions, this will be specific per year
 
 /*------------------------------------- IMPORT MASK ---------------------------------*/
-var mask_input_60m = ee.Image('users/jerrilyn/2015mask-PM');
-// Get the link here: https://drive.google.com/file/d/0B_MArPTqurHudTNEaUptMkpoTzA/view
+var mask_input_60m_2015 = ee.Image('users/jerrilyn/2015mask-PM-fullstudy-area');
+// Get the link here: https://drive.google.com/file/d/0B_MArPTqurHudFp6STU4ZzJHRmc/view
 
 /* ----------------------------------- VISUALIZATION / SETUP ------------------------------
 Adds study area; various areas of interest  */
@@ -103,7 +103,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   var lowNDVI = NDVI.where(NDVI.lte(NDVI_Threshold),1).where(NDVI.gt(NDVI_Threshold),0);
   
   // Create binary image containing the intersection between the LowNDVI and anywhere the inverted mask is 1
-  var MTR = lowNDVI.and(mask_input_60m.eq(0));
+  var MTR = lowNDVI.and(mask_input_60m_2015.eq(0));
   
   // Erode/dilate MTR sites to remove outliers (pixel clean-up)
   var MTR_eroded_dialated_dialated_eroded = MTR
