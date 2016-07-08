@@ -36,8 +36,8 @@ IEEE Transactions on Systems, Man, and Cybernetics, vol SMC-9, no. 1, 1979.
 
 2) Set line 97 to one of the following:
   LANDSAT/LT5_L1T   for 1984 - 2011
-  LANDSAT/LE7_L1T   for 2012
-  LANDSAT/LC8_L1T   for 2013 - 2015
+  LANDSAT/LE7_L1T   for 2012 - 2013
+  LANDSAT/LC8_L1T   for 2014 - 2015
   
 3) Set line 99 to the desired year of analysis (change the year twice for beginning and end date)
 
@@ -101,14 +101,14 @@ var imagery = ee.ImageCollection("LANDSAT/LC8_L1T")
 // Create the greenest pixel composite and extract image of just that band
 var greenestComposite = imagery.map(function(image){
   var min_mask = image.mask().reduce(ee.Reducer.min()).gt(0);
-  var sat_mask = image.reduce(ee.Reducer.max()).lt(250);
+  var sat_mask = image.reduce(ee.Reducer.max()).lt(250); // NOTE: change this to 64256 for LS8
   var new_mask = min_mask.min(sat_mask).focal_min(3);
   var toa = ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
   var masked = toa.updateMask(mask);
   var ndvi = masked.normalizedDifference(["B5","B4"]);
   return masked.addBands(ndvi);
 });
-var greenest = greenestComposite.qualityMosaic("nd").clip(extent);
+var greenest = greenestComposite.qualityMosaic("nd");
 var oneBand = greenest.select("nd");
 
 // Convert greenest pixel composite to 8-bit image
@@ -221,5 +221,6 @@ for (var loc = 0; loc < samples.length; loc++){
 
 else {
 // Add layers for display
-Map.addLayer(oneBand, {min:0.2,max:0.8});
+Map.addLayer(oneBand, {min:0.2,max:0.8}, "Greenest pixel comp.");
+Map.addLayer(extent, "Study area extent");
 }
