@@ -13,8 +13,8 @@ var campagna_study_area = ee.FeatureCollection('ft:1Qo6AmhdEN44vPUpyGtzPtQUUO4ry
 var NDVI_Threshold = 0.51;
 
 /*------------------------------------- IMPORT MASK ---------------------------------*/
-var mask_input_60m = ee.Image('users/christian/60m-mask-total-area');
-//'https://drive.google.com/file/d/0ByjSOOGMRVf5aUpLa01aX0FXR0U/view?usp=sharing'
+var mask_input_60m_2015 = ee.Image('users/jerrilyn/2015mask-PM-fullstudy-area');
+// Get the link here: https://drive.google.com/file/d/0B_MArPTqurHudFp6STU4ZzJHRmc/view
 
 /* ----------------------------------- VISUALIZATION / SETUP ------------------------------
 Adds Campagna study area; various areas of interest  */
@@ -76,7 +76,7 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   var lowNDVI = NDVI.where(NDVI.lte(NDVI_Threshold),1).where(NDVI.gt(NDVI_Threshold),0);
   
   // Create binary image containing the intersection between the LowNDVI and anywhere the inverted mask is 1
-  var MTR = lowNDVI.and(mask_input_60m.eq(0));
+  var MTR = lowNDVI.and(mask_input_60m_2015.eq(0));
   
   // Erode/dilate MTR sites to remove outliers (pixel clean-up)
   var MTR_eroded_dialated_dialated_eroded = MTR
