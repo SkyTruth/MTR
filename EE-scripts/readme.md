@@ -6,8 +6,6 @@
 
 `greenestComposite_LS1-3.js` : Script to create greenest pixel composites for early Landsat satellites
 
-`ndvi-builder-classifier.js` : **Old version of analysis script; can this be archived?**  **Yes**
-
 `ndvi-workspace-analysis.js` : Current version of mining extent script; full version used for analysis
 
 `ndvi-workspace-viz.js` : Mining extent script optimized for visualization purposes
