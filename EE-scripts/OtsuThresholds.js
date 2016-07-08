@@ -1,6 +1,8 @@
 /* AUTOMATIC IMAGE THRESHOLDING FROM THE OTSU METHOD
 Andrew Pericak, June 2016
 
+Playground link: https://code.earthengine.google.com/ff1d4d7414c2de8016b69e9caf2bdba7
+
 This script will automatically determine NDVI thresholds over mined landscapes. It uses the
 Otsu method, which is a common image thresholding algorithm, to derive the threshold. The
 Otsu method assumes a grayscale image (in our case, a one-band image of NDVI, which is also
@@ -28,22 +30,81 @@ See: Nobuyuki Otsu, "A Threshold Selection Method from Gray-Level Histograms,"
 IEEE Transactions on Systems, Man, and Cybernetics, vol SMC-9, no. 1, 1979.
 */
 
+/* -------------------------- PROCEDURE -------------------------------------------------
+
+1) Set line 88 to false (lowercase)
+
+2) Set line 97 to one of the following:
+  LANDSAT/LT5_L1T   for 1984 - 2011
+  LANDSAT/LE7_L1T   for 2012
+  LANDSAT/LC8_L1T   for 2013 - 2015
+  
+3) Set line 99 to the desired year of analysis (change the year twice for beginning and end date)
+
+4) Set line 108 to either ["B4","B3"] for Landsat 5/7, or ["B5,"B4"] for Landsat 8
+
+5) Press "Run"; this adds the max-NDVI (greenest pixel) layer to the map, where black is low NDVI values 
+
+6) From the top-left of the map screen, press the point drawing icon (inverse teardrop.) Then 
+   press the "Geometry Imports" button, highlight the layer (called "Geometry"), and press the
+   gear icon. Rename the layer to the analysis year, and change "Import as" to "Feature".
+
+7) Move around the map, placing 30 points near the middle of mines (black areas). The location of the
+   point does not have to be precise. Make sure these 30 points are spread out across the entire study
+   extent (i.e., the entire extent of the NDVI area); but, the points should always be over mines (i.e.,
+   don't put points on forested areas, or in masked out areas.)
+   
+8) Change line 88 back to true (lowercase)
+
+9) Scroll to the top of this code window to the Imports section. Click the small blue square with lines
+   on it. Copy the entire list of coordinate pairs (beginning with [[ and ending with ]]). You don't
+   need to copy any of the extra information. Make sure that you're copying the coordinate list for 
+   the correct analysis year!
+   
+10) Paste the list of coordinates from line 122 to line 151, making sure the list starts with [[ and 
+    ends with ]].
+    
+11) Press "Run". The processing will now occur, and this will take awhile, so your browser tab will 
+    appear to freeze and you'll likely get some error messages from your browser. Just ignore all 
+    those error messages and let the script run. 
+
+12) Once the script has finished, a list of threshold numbers will appear in the Console. Copy the
+    list and paste it into the first tab of this spreadsheet (the tab "rawThresholdValues"), in the 
+    appropriate year: 
+    https://docs.google.com/spreadsheets/d/1WpR4VJkzjAqsJ6UzWeTVM80JRJBS06x-s-x4kDZd6Kc/edit?usp=sharing
+
+13) If you get an error message in the Console, there will be a list of numbers in the Console too. Copy
+    those numbers and paste them into the spreadsheet, but also count how many numbers there are. Then,
+    comment out that many coordinate pairs from your list, starting at the top of the list. For example,
+    if the Console only yields 23 numbers, comment out the first 23 coordinate pairs from the list so that
+    the remaining 7 are uncommented. Then, press "Run" again, and the Console should relatively quickly
+    deliver the remaining 7 thresholds. 
+    
+14) Copy the entire list of coordinate pairs you used (lines 122 to 151) and paste it into the third
+    table of the spreadsheet linked above (the tab "coordinatePairs").
+
 /* -------------------------- IMAGERY AND SAMPLE LOCATIONS ------------------------------ */
 
+var runThreshold = false; // Whether to run the Otsu processing or not (for viz)
+
 // Import magic mask
-var mask = ee.Image("users/christian/60m-mask-total-area").remap([0,1],[1,0]);
+var mask = ee.Image("users/jerrilyn/2015mask-PM-fullstudy-area").remap([0,1],[1,0]);
 
 // Import study area extent
 var extent = ee.FeatureCollection("ft:1sZzM7TFsdW0HDqewl4-zNAsSZCXEjAfPn8EYow5q").geometry();
 
 // Import surface reflectance imagery for one calendar year, using a specified sensor
-var LS5 = ee.ImageCollection("LANDSAT/LT5_SR")
+var imagery = ee.ImageCollection("LANDSAT/LT5_L1T")
   .filterBounds(extent)
-  .filterDate("2010-01-01", "2010-12-31");
+  .filterDate("1984-01-01", "1984-12-31");
 
 // Create the greenest pixel composite and extract image of just that band
-var greenestComposite = LS5.map(function(image){
-  var masked = image.updateMask(mask);
+var greenestComposite = imagery.map(function(image){
+  var min_mask = image.mask().reduce(ee.Reducer.min()).gt(0);
+  var sat_mask = image.reduce(ee.Reducer.max()).lt(250);
+  var new_mask = min_mask.min(sat_mask).focal_min(3);
+  var toa = ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
+  var masked = toa.updateMask(mask);
   var ndvi = masked.normalizedDifference(["B4","B3"]);
   return masked.addBands(ndvi);
 });
@@ -52,6 +113,7 @@ var oneBand = greenest.select("nd");
 
 // Convert greenest pixel composite to 8-bit image
 var to8bit = oneBand.multiply(255).toUint8();
+
 
 // The sample locations, stored as coordinates in a 2D array. With Earth Engine, we should use
 // mapped functions, but there is so much in this script that requires non-EE JS that it's just
@@ -91,6 +153,7 @@ var samples = [[-81.91818237304688, 37.621641929508456],
 /* -------------------------- OTSU THRESHOLDING METHOD --------------------------- */
 
 // A big for-loop to get variables and data ready for Otsu processing, and then to run the algorithm
+if (runThreshold === true) {
 for (var loc = 0; loc < samples.length; loc++){
   var point = ee.Geometry.Point(samples[loc]);
 
@@ -154,8 +217,9 @@ for (var loc = 0; loc < samples.length; loc++){
   var threshold = ( threshold1 + threshold2 ) / 2.0 / 255; // This division returns the threshold back to the original NDVI values
 
   print(threshold);
-}
+}}
 
-// Add layers for display, if you want
+else {
+// Add layers for display
 Map.addLayer(oneBand, {min:0.2,max:0.8});
-Map.addLayer(oneBand.where(oneBand.lte(0.6118),1).where(oneBand.gt(0.6118),0));
+}
