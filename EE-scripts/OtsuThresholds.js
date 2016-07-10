@@ -222,5 +222,5 @@ for (var loc = 0; loc < samples.length; loc++){
 else {
 // Add layers for display
 Map.addLayer(oneBand, {min:0.2,max:0.8}, "Greenest pixel comp.");
-Map.addLayer(extent, "Study area extent");
+Map.addLayer(extent, {}, "Study area extent");
 }
