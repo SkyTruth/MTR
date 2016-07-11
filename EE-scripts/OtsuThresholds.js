@@ -1,7 +1,7 @@
 /* AUTOMATIC IMAGE THRESHOLDING FROM THE OTSU METHOD
 Andrew Pericak, June 2016
 
-Playground link: https://code.earthengine.google.com/1b81bfa520ed904218ab6df162b53053
+Playground link: https://code.earthengine.google.com/9360a29db5ad04606319d866c18c6c0b
 
 This script will automatically determine NDVI thresholds over mined landscapes. It uses the
 Otsu method, which is a common image thresholding algorithm, to derive the threshold. The
@@ -94,7 +94,7 @@ var mask = ee.Image("users/jerrilyn/2015mask-PM-fullstudy-area").remap([0,1],[1,
 var extent = ee.FeatureCollection("ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U").geometry();
 
 // Import surface reflectance imagery for one calendar year, using a specified sensor
-var imagery = ee.ImageCollection("LANDSAT/LC8_L1T")
+var imagery = ee.ImageCollection("LANDSAT/LT5_L1T")
   .filterBounds(extent)
   .filterDate("2015-01-01", "2015-12-31");
 
@@ -105,7 +105,7 @@ var greenestComposite = imagery.map(function(image){
   var new_mask = min_mask.min(sat_mask).focal_min(3);
   var toa = ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
   var masked = toa.updateMask(mask);
-  var ndvi = masked.normalizedDifference(["B5","B4"]);
+  var ndvi = masked.normalizedDifference(["B4","B3"]);
   return masked.addBands(ndvi);
 });
 var greenest = greenestComposite.qualityMosaic("nd");
