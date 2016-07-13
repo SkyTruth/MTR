@@ -1,7 +1,7 @@
 /* AUTOMATIC IMAGE THRESHOLDING FROM THE OTSU METHOD
 Andrew Pericak, June 2016
 
-Playground link: https://code.earthengine.google.com/9360a29db5ad04606319d866c18c6c0b
+Playground link: https://code.earthengine.google.com/ef2d5c089e2bfc8cf0cb1fcd6153341f
 
 This script will automatically determine NDVI thresholds over mined landscapes. It uses the
 Otsu method, which is a common image thresholding algorithm, to derive the threshold. The
@@ -32,16 +32,21 @@ IEEE Transactions on Systems, Man, and Cybernetics, vol SMC-9, no. 1, 1979.
 
 /* -------------------------- PROCEDURE -------------------------------------------------
 
-1) Set line 88 to false (lowercase)
+1) Set line 93 to false (lowercase)
 
-2) Set line 97 to one of the following:
+2) Set line 94 to one of the following:
+  LANDSAT/LM1_L1T   for 1972 - 1974
+  LANDSAT/LM2_L1T   for 1975 - 1982   [note: due to poor coverage, omit 1983]
   LANDSAT/LT5_L1T   for 1984 - 2011
   LANDSAT/LE7_L1T   for 2012 - 2013
   LANDSAT/LC8_L1T   for 2014 - 2015
   
-3) Set line 99 to the desired year of analysis (change the year twice for beginning and end date)
+3) Set line 95 to the desired start year of analysis, and line 96 to desired end year (these could be the same)
 
-4) Set line 108 to either ["B4","B3"] for Landsat 5/7, or ["B5,"B4"] for Landsat 8
+4) Set line 97 to 
+    ["B7","B5"] --> Landsat 1/2
+    ["B4","B3"] --> Landsat 5/7
+    ["B5","B4"] --> Landsat 8
 
 5) Press "Run"; this adds the max-NDVI (greenest pixel) layer to the map, where black is low NDVI values 
 
@@ -54,14 +59,14 @@ IEEE Transactions on Systems, Man, and Cybernetics, vol SMC-9, no. 1, 1979.
    extent (i.e., the entire extent of the NDVI area); but, the points should always be over mines (i.e.,
    don't put points on forested areas, or in masked out areas.)
    
-8) Change line 88 back to true (lowercase)
+8) Change line 93 back to true (lowercase)
 
 9) Scroll to the top of this code window to the Imports section. Click the small blue square with lines
    on it. Copy the entire list of coordinate pairs (beginning with [[ and ending with ]]). You don't
    need to copy any of the extra information. Make sure that you're copying the coordinate list for 
    the correct analysis year!
    
-10) Paste the list of coordinates from line 122 to line 151, making sure the list starts with [[ and 
+10) Paste the list of coordinates from line 166 to line 195, making sure the list starts with [[ and 
     ends with ]].
     
 11) Press "Run". The processing will now occur, and this will take awhile, so your browser tab will 
@@ -80,12 +85,18 @@ IEEE Transactions on Systems, Man, and Cybernetics, vol SMC-9, no. 1, 1979.
     the remaining 7 are uncommented. Then, press "Run" again, and the Console should relatively quickly
     deliver the remaining 7 thresholds. 
     
-14) Copy the entire list of coordinate pairs you used (lines 122 to 151) and paste it into the third
+14) Copy the entire list of coordinate pairs you used (lines 166 to 195) and paste it into the third
     table of the spreadsheet linked above (the tab "coordinatePairs").
 
-/* -------------------------- IMAGERY AND SAMPLE LOCATIONS ------------------------------ */
+/* --------------------------------- USER VARIABLES ------------------------------------- */
 
 var runThreshold = false; // Whether to run the Otsu processing or not (for viz)
+var imagery = "LANDSAT/LM1_L1T";
+var startYr = 1972;
+var endYr = 1974;
+var ndviBands = ["B7","B5"];
+
+/* -------------------------- IMAGERY AND SAMPLE LOCATIONS ------------------------------ */
 
 // Import magic mask
 var mask = ee.Image("users/jerrilyn/2015mask-PM-fullstudy-area").remap([0,1],[1,0]);
@@ -94,22 +105,55 @@ var mask = ee.Image("users/jerrilyn/2015mask-PM-fullstudy-area").remap([0,1],[1,
 var extent = ee.FeatureCollection("ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U").geometry();
 
 // Import surface reflectance imagery for one calendar year, using a specified sensor
-var imagery = ee.ImageCollection("LANDSAT/LT5_L1T")
+var imagery = ee.ImageCollection(imagery)
   .filterBounds(extent)
-  .filterDate("2015-01-01", "2015-12-31");
+  .filterDate(startYr+"-01-01", endYr+"-12-31");
 
 // Create the greenest pixel composite and extract image of just that band
-var greenestComposite = imagery.map(function(image){
-  var min_mask = image.mask().reduce(ee.Reducer.min()).gt(0);
-  var sat_mask = image.reduce(ee.Reducer.max()).lt(250); // NOTE: change this to 64256 for LS8
-  var new_mask = min_mask.min(sat_mask).focal_min(3);
-  var toa = ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
-  var masked = toa.updateMask(mask);
-  var ndvi = masked.normalizedDifference(["B4","B3"]);
-  return masked.addBands(ndvi);
-});
-var greenest = greenestComposite.qualityMosaic("nd");
-var oneBand = greenest.select("nd");
+if(endYr <= 1982){
+  var greenestComposite = imagery.map(function(image){
+    var min_mask = image.mask().reduce(ee.Reducer.min()).gt(0);
+    var sat_mask = image.reduce(ee.Reducer.max()).lt(250);
+    var new_mask = min_mask.min(sat_mask).focal_min(3);
+    var TOA = ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
+    var masked = TOA.updateMask(mask);
+    
+    var B4 = masked.select("B4");
+    var B5 = masked.select("B5");
+    var B7 = masked.select("B7");
+    var errorMask = ee.Image(0).where((B4.gte(0.065)).and(B5.gte(0)).and(B7.lte(0.32)),1); 
+    var cleanedImage = masked.updateMask(errorMask);
+    
+    var NDGR = cleanedImage.normalizedDifference(["B4","B5"]); // Not NDVI
+    var B4img = cleanedImage.select("B4");
+    var cloud1 = ee.Image(0).where((NDGR.gt(0).and(B4img.gt(0.175))).or(B4img.gt(0.39)),1);
+    var cloud2 = cloud1.updateMask(cloud1);
+    var cloud3 = cloud2.connectedPixelCount().reproject("EPSG:3857", undefined, 60);
+    var cloud4 = cloud3.where(cloud3.gte(9),1).where(cloud3.lt(9),0);
+    var cloud5 = cloud4.updateMask(cloud4);
+    var cloud6 = cloud5.reduceNeighborhood(ee.call("Reducer.max"), ee.call("Kernel.square", 150, "meters"), undefined, false);
+    var cloudMask = cloud5.unmask().remap([0,1],[1,0]);
+    
+    var ndvi = cleanedImage.updateMask(cloudMask).normalizedDifference(ndviBands);
+    return cleanedImage.addBands(ndvi);
+  });
+  var greenest = greenestComposite.qualityMosaic("nd");
+  var oneBand = greenest.select("nd");
+}
+
+else{
+  var greenestComposite = imagery.map(function(image){
+    var min_mask = image.mask().reduce(ee.Reducer.min()).gt(0);
+    var sat_mask = image.reduce(ee.Reducer.max()).lt(250); // NOTE: change this to 64256 for LS8
+    var new_mask = min_mask.min(sat_mask).focal_min(3);
+    var toa = ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
+    var masked = toa.updateMask(mask);
+    var ndvi = masked.normalizedDifference(ndviBands);
+    return masked.addBands(ndvi);
+  });
+  var greenest = greenestComposite.qualityMosaic("nd");
+  var oneBand = greenest.select("nd");
+}
 
 // Convert greenest pixel composite to 8-bit image
 var to8bit = oneBand.multiply(255).toUint8();
