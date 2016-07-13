@@ -107,10 +107,10 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   
   // Erode/dilate MTR sites to remove outliers (pixel clean-up)
   var MTR_eroded_dialated_dialated_eroded = MTR
-    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(30, 'meters'))
-    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters'))
-    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters'))
-    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(30, 'meters'));
+    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(60, 'meters'))
+    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(60, 'meters'))
+    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(60, 'meters'))
+    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(60, 'meters'));
   
   var MTR_masked = MTR_eroded_dialated_dialated_eroded.updateMask(MTR_eroded_dialated_dialated_eroded);
 
@@ -283,3 +283,4 @@ var vector_MTR = MTR_1_clipped.reduceToVectors({
 // - 6/06: Script Cleanup for overall simplification
 // - 6/24: Lots of cleaning/optimization
 // - 7/07: Add new mask/study area; code for own greenest pixel composite
+// - 7/13: Updated Erode/Dilate order and buffer distance
