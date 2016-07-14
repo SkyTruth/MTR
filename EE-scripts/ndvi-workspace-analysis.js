@@ -3,19 +3,41 @@
    and other surface coal mining. This script is the full, complete version for analysis,
    meaning it will take a long time to run. 
    
-   Playground code: https://code.earthengine.google.com/ac5b19be02c8eaaac9e0d94896ab4dd5
+   Playground code: https://code.earthengine.google.com/f7d140c30ae7a583b813dcef67189071
 ///////////////////////////////////////////////////////////////////////////////////////*/
 
 /*------------------------------------ IMPORT STUDY AREA ----------------------------*/
 var studyArea = ee.FeatureCollection('ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U');
 // Get the link here: https://www.google.com/fusiontables/DataSource?docid=1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U
 
-/*------------------------------------ SET NDVI THRESHOLD ---------------------------*/
-var NDVI_Threshold = 0.51; // In future versions, this will be specific per year
+/*------------------------------------ SET NDVI THRESHOLDS --------------------------*/
+// These thresholds set per each year (and associated sensor) using Otsu method; 
+// see https://github.com/SkyTruth/MTR/blob/master/EE-scripts/OtsuThresholds.js
+// Note: The first four are a series of years; 1983 is omitted due to lack of quality imagery
+//    1972 = 1972-1974
+//    1975 = 1975-1977
+//    1978 = 1978-1980
+//    1981 = 1981-1982
 
-/*------------------------------------- IMPORT MASK ---------------------------------*/
+var NDVI_Threshold = {
+  1972: 0.0000,   1975: 0.0000,   1978: 0.0000,   1981: 0.0000    1984: 0.5154,
+  1985: 0.5120,   1986: 0.5425,   1987: 0.5199,   1988: 0.5290,   1989: 0.4952,
+  1990: 0.5022,   1991: 0.4940,   1992: 0.4892,   1993: 0.5237,   1994: 0.5467,
+  1995: 0.5494,   1996: 0.5574,   1997: 0.5327,   1998: 0.5229,   1999: 0.5152,
+  2000: 0.5063,   2001: 0.5456,   2002: 0.5242,   2003: 0.5239,   2004: 0.5821,
+  2005: 0.5401,   2006: 0.5552,   2007: 0.5609,   2008: 0.5454,   2009: 0.5443,
+  2010: 0.5250,   2011: 0.5305,   2012: 0.5465,   2013: 0.5812,   2014: 0.5750,   
+  2015: 0.5927
+};
+
+/*------------------------------------- IMPORT MASKS --------------------------------*/
 var mask_input_60m_2015 = ee.Image('users/jerrilyn/2015mask-PM-fullstudy-area');
+// Roads, water bodies, urban areas, etc., buffered 60 m
 // Get the link here: https://drive.google.com/file/d/0B_MArPTqurHudFp6STU4ZzJHRmc/view
+
+var miningPermits = ee.Image('users/andrewpericak/allMinePermits');
+// All surface mining permits, buffered 1000 m
+// Get the link here: https://drive.google.com/file/d/0B_PTuMKVy7beSWdZUkJIS3hneW8/view
 
 /* ----------------------------------- VISUALIZATION / SETUP ------------------------------
 Adds study area; various areas of interest  */
@@ -89,30 +111,31 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
       var calc = image.normalizedDifference(["B5","B4"]).clip(studyArea);
       return image.addBands(calc);
     });
-    var NDVI = ndCalc.qualityMosaic("nd");
+    var NDVI = ndCalc.select("nd").qualityMosaic("nd");
   }
   else {
     var ndCalc = yearImgs.map(function(image){
-      var calc = image.normalizedDifference(["B4","B3"]).clip(studyArea).select("nd");
+      var calc = image.normalizedDifference(["B4","B3"]).clip(studyArea);
       return image.addBands(calc);
     });
-    var NDVI = ndCalc.qualityMosaic("nd");
+    var NDVI = ndCalc.select("nd").qualityMosaic("nd");
   }
   
   // Create a mask of areas that ARE NOT mines (value of 1 to locations where NDVI is <= threshold)
-  var lowNDVI = NDVI.where(NDVI.lte(NDVI_Threshold),1).where(NDVI.gt(NDVI_Threshold),0);
+  var lowNDVI = NDVI.where(NDVI.lte(NDVI_Threshold[year]),1).where(NDVI.gt(NDVI_Threshold[year]),0);
   
   // Create binary image containing the intersection between the LowNDVI and anywhere the inverted mask is 1
   var MTR = lowNDVI.and(mask_input_60m_2015.eq(0));
   
   // Erode/dilate MTR sites to remove outliers (pixel clean-up)
-  var MTR_eroded_dialated_dialated_eroded = MTR
-    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(60, 'meters'))
-    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(60, 'meters'))
-    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(60, 'meters'))
-    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(60, 'meters'));
-  
-  var MTR_masked = MTR_eroded_dialated_dialated_eroded.updateMask(MTR_eroded_dialated_dialated_eroded);
+  var MTR_cleaning = MTR
+    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters'))  // erode
+    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(60, 'meters'))  // dilate
+    //.reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(60, 'meters'))  // dilate
+    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters')); // erode
+
+  // Mask MTR by the erosion/dilation, and by mining permit locations buffered 1 km
+  var MTR_masked = MTR_cleaning.updateMask(MTR_cleaning).updateMask(miningPermits);
 
   /*--------------------------------- IMAGE VISUALIZATION ---------------------------------*/
   
@@ -284,3 +307,4 @@ var vector_MTR = MTR_1_clipped.reduceToVectors({
 // - 6/24: Lots of cleaning/optimization
 // - 7/07: Add new mask/study area; code for own greenest pixel composite
 // - 7/13: Updated Erode/Dilate order and buffer distance
+// - 7/14: Add yearly thresholds; add buffered mine permits
