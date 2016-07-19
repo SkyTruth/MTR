@@ -3,10 +3,16 @@
    and other surface coal mining. This script is the full, complete version for analysis,
    meaning it will take a long time to run. 
    
-   Playground code: https://code.earthengine.google.com/f7d140c30ae7a583b813dcef67189071
+   Playground code: https://code.earthengine.google.com/be500574a42cbd1f49fe4cffcf6d2dd5
 ///////////////////////////////////////////////////////////////////////////////////////*/
 
-/*------------------------------------ IMPORT STUDY AREA ----------------------------*/
+/* ------------------------------------- RUN EXPORTING? ----------------------------- */
+// Trigger this to true to run image exporting via Tasks
+var exportImages = false;
+// Trigger this to true to run video exporting via tasks
+var exportVideo = false;
+
+/*------------------------------------ IMPORT STUDY AREA ---------------------------- */
 var studyArea = ee.FeatureCollection('ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U');
 // Get the link here: https://www.google.com/fusiontables/DataSource?docid=1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U
 
@@ -14,13 +20,13 @@ var studyArea = ee.FeatureCollection('ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h
 // These thresholds set per each year (and associated sensor) using Otsu method; 
 // see https://github.com/SkyTruth/MTR/blob/master/EE-scripts/OtsuThresholds.js
 // Note: The first four are a series of years; 1983 is omitted due to lack of quality imagery
-//    1972 = 1972-1974
-//    1975 = 1975-1977
-//    1978 = 1978-1980
-//    1981 = 1981-1982
+//    1974 = 1972-1974
+//    1977 = 1975-1977
+//    1980 = 1978-1980
+//    1982 = 1981-1982
 
 var NDVI_Threshold = {
-  1972: 0.0000,   1975: 0.0000,   1978: 0.0000,   1981: 0.0000    1984: 0.5154,
+  1974: 0.4699,   1977: 0.5950,   1980: 0.5749,   1982: 0.5375,   1984: 0.5154,
   1985: 0.5120,   1986: 0.5425,   1987: 0.5199,   1988: 0.5290,   1989: 0.4952,
   1990: 0.5022,   1991: 0.4940,   1992: 0.4892,   1993: 0.5237,   1994: 0.5467,
   1995: 0.5494,   1996: 0.5574,   1997: 0.5327,   1998: 0.5229,   1999: 0.5152,
@@ -72,48 +78,127 @@ var cleaner = function(image){
     // Compute the minimum mask across all bands, to eliminate known-risky edge pixels.
     var min_mask = image.mask().reduce(ee.Reducer.min()).gt(0);
     // Compute a mask that eliminates fully-saturated (likey non-physical) sensor values.
-    var sat_mask = image.reduce(ee.Reducer.max()).lt(250);
+    var sat_mask = image.reduce(ee.Reducer.max()).lt(outlierValue);
     // Combine these masks and erode neighboring pixels just a bit.
     var new_mask = min_mask.min(sat_mask).focal_min(3);
     // Turn raw images into TOA images.
     return ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
 };
 
-for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
+var earlyLScleaner = function(image){
+    var B4 = image.select("B4");
+    var B5 = image.select("B5");
+    var B7 = image.select("B7");
+    var errorMask = ee.Image(0).where((B4.gte(0.065)).and(B5.gte(0)).and(B7.lte(0.32)),1); 
+    var cleanedImage = image.updateMask(errorMask);
+    
+    var NDGR = cleanedImage.normalizedDifference(["B4","B5"]); // Not NDVI
+    var B4img = cleanedImage.select("B4");
+    var cloud1 = ee.Image(0).where((NDGR.gt(0).and(B4img.gt(0.175))).or(B4img.gt(0.39)),1);
+    var cloud2 = cloud1.updateMask(cloud1);
+    var cloud3 = cloud2.connectedPixelCount().reproject("EPSG:3857", undefined, 60);
+    var cloud4 = cloud3.where(cloud3.gte(9),1).where(cloud3.lt(9),0);
+    var cloud5 = cloud4.updateMask(cloud4);
+    var cloud6 = cloud5.reduceNeighborhood(ee.call("Reducer.max"), ee.call("Kernel.square", 150, "meters"), undefined, false);
+    var cloudMask = cloud5.unmask().remap([0,1],[1,0]);
+    
+    var ndvi = cleanedImage.updateMask(cloudMask).normalizedDifference(["B7", "B5"]);
+    return cleanedImage.addBands(ndvi).clip(studyArea);
+};
+
+for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
   
   // Determine what imagery dataset to use, based off year loop
-  if (year <= 2011){
-    var imagery = ee.ImageCollection("LANDSAT/LT5_L1T");
+  if (year <= 1974){
+    var imagery = ee.ImageCollection("LANDSAT/LM1_L1T");  // Landsat 1: 1972 - 1974
+    var NDVIbands = 75;
+    var outlierValue = 250;
+  }
+  else if (year > 1974 && year <= 1983){
+    var imagery = ee.ImageCollection("LANDSAT/LM2_L1T");  // Landsat 2: 1975 - 1982 [omit 1983]
+    var NDVIbands = 75;
+    var outlierValue = 250;
+  }
+  else if (year > 1983 && year <= 2011){
+    var imagery = ee.ImageCollection("LANDSAT/LT5_L1T");  // Landsat 5: 1984 - 2011
     var NDVIbands = 43;
+    var outlierValue = 250;
     var rgb_vis = {min:0, max:0.3, bands:['B3','B2','B1']};
   }
   else if (year == 2012){
-    var imagery = ee.ImageCollection("LANDSAT/LE7_L1T");
+    var imagery = ee.ImageCollection("LANDSAT/LE7_L1T");  // Landsat 7: 2012
     var NDVIbands = 43;
+    var outlierValue = 250;
     var rgb_vis = {min:0, max:0.25, bands:['B3','B2','B1']};
   }
   else if (year >= 2013){
-    var imagery = ee.ImageCollection("LANDSAT/LC8_L1T");
+    var imagery = ee.ImageCollection("LANDSAT/LC8_L1T");  // Landsat 8: 2013 - 
     var NDVIbands = 54; // Because different bands are needed for LS8
+    var outlierValue = 64256;
     var rgb_vis = {min:0, max:0.25, bands:['B4','B3','B2']};
   }
   
-  // Select specific year for analysis and clean raw input data
-  var yearImgs = imagery
-    .filterDate(year+"-01-01", year+"-12-31")
-    .filterBounds(studyArea)
-    .map(cleaner);
-  
+
   // Calculate NDVI and create greenest pixel composite 
   // (using normalizedDifference function; select correct bands per sensor)
-  if (NDVIbands == 54){
+  if (NDVIbands == 75){
+    if (year >= 1972 && year <= 1973){continue;}
+    else if (year == 1974){
+      var yearImgs = imagery
+        .filterDate("1972-01-01", "1974-12-31")
+        .filterBounds(studyArea)
+        .map(cleaner)
+        .map(earlyLScleaner);
+      var NDVI = yearImgs.select("nd").qualityMosaic("nd");
+    }
+    else if (year >= 1975 && year <= 1976){continue;}
+    else if (year == 1977){
+      var yearImgs = imagery
+        .filterDate("1975-01-01", "1977-12-31")
+        .filterBounds(studyArea)
+        .map(cleaner)
+        .map(earlyLScleaner);
+      var NDVI = yearImgs.select("nd").qualityMosaic("nd");
+    }
+    else if (year >= 1978 && year <= 1979){continue;}
+    else if (year == 1980){
+      var yearImgs = imagery
+        .filterDate("1978-01-01", "1980-12-31")
+        .filterBounds(studyArea)
+        .map(cleaner)
+        .map(earlyLScleaner);
+      var NDVI = yearImgs.select("nd").qualityMosaic("nd");
+    }
+    else if (year == 1981){continue;}
+    else if (year == 1982){
+      var yearImgs = imagery
+        .filterDate("1981-01-01", "1982-12-31")
+        .filterBounds(studyArea)
+        .map(cleaner)
+        .map(earlyLScleaner);
+      var NDVI = yearImgs.select("nd").qualityMosaic("nd");
+    }
+    else if (year == 1983){continue;}
+  }
+  
+  else if (NDVIbands == 54){
+    // Select specific year for analysis and clean raw input data
+    var yearImgs = imagery
+      .filterDate(year+"-01-01", year+"-12-31")
+      .filterBounds(studyArea)
+      .map(cleaner);
     var ndCalc = yearImgs.map(function(image){
       var calc = image.normalizedDifference(["B5","B4"]).clip(studyArea);
       return image.addBands(calc);
     });
     var NDVI = ndCalc.select("nd").qualityMosaic("nd");
   }
-  else {
+  else if (NDVIbands == 43){
+    // Select specific year for analysis and clean raw input data
+    var yearImgs = imagery
+      .filterDate(year+"-01-01", year+"-12-31")
+      .filterBounds(studyArea)
+      .map(cleaner);
     var ndCalc = yearImgs.map(function(image){
       var calc = image.normalizedDifference(["B4","B3"]).clip(studyArea);
       return image.addBands(calc);
@@ -139,25 +224,31 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
 
   /*--------------------------------- IMAGE VISUALIZATION ---------------------------------*/
   
-  // Set color palette by year (http://colorbrewer2.org/?type=sequential&scheme=OrRd&n=6)
+  // Set color palette by year (http://colorbrewer2.org/?type=sequential&scheme=OrRd&n=8)
   // Currently every five years are a different color (dark -> light over time)
-  if (year <= 1988){
-    var palette = "b30000";
+  if (year <= 1977){
+    var palette = "990000";
+  }
+  else if (year > 1977 && year <= 1982){
+    var palette = "d7301f";
+  }
+  else if (year > 1982 && year <= 1988){
+    var palette = "ef6548"
   }
   else if (year > 1988 && year <= 1993 ){
-    var palette = "e34a33";
-  }
-  else if (year > 1993 && year <= 1998){
     var palette = "fc8d59";
   }
-  else if (year > 1998 && year <= 2003){
+  else if (year > 1993 && year <= 1998){
     var palette = "fdbb84";
   }
-  else if (year > 2003 && year <= 2008){
+  else if (year > 1998 && year <= 2003){
     var palette = "fdd49e";
   }
+  else if (year > 2003 && year <= 2008){
+    var palette = "fee8c8";
+  }
   else if (year > 2008){
-    var palette = "fef0d9";
+    var palette = "fff7ec";
   }
   
   // Add each layer to the map; 
@@ -188,12 +279,12 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
   MTR_area[1].push(areaKmSq);
   */
   
-  /* -------------------------------- EXPORTING ------------------------------------------- 
-  Comment out this section if you don't want to export anything */
+  /* -------------------------------- EXPORTING ------------------------------------------- */
   
+  if (exportImages === true) {
   // Set CRS and transform; create rectangular boundaries for exporting
-  //var crs = yearImg.projection().atScale(30).getInfo()['crs'];
-  //var transform = yearImg.projection().atScale(30).getInfo()['transform'];
+  //var crs = MTR_masked.projection().atScale(30).getInfo().crs;
+  //var transform = MTR_masked.projection().atScale(30).getInfo().transform;
 
   /*// Export entire study region to GDrive (many images; one per year!)
   Export.image.toDrive({
@@ -203,13 +294,15 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
       scale: 900,
       //crs: crs,
       //crsTransform: transform
-    });
+    });*/
+    
   // OR, export one or some of the subregions to GDrive (many images!) 
   Export.image.toDrive({
       image: MTR_masked.unmask(0),
       description: "MTR"+year+"reg1",
       region: geometryI,
-      scale: 90,
+      maxPixels: 1e9,
+      scale: 30,
       //crs: crs,
       //crsTransform: transform
     });
@@ -217,34 +310,39 @@ for (var year = 2015; year >= 1984; year--){ // Years of interest for the study
       image: MTR_masked.unmask(0),
       description: "MTR"+year+"reg2",
       region: geometryII,
-      scale: 90,
-      crs: crs,
-      crsTransform: transform
+      maxPixels: 1e9,
+      scale: 30,
+      //crs: crs,
+      //crsTransform: transform
     });
   Export.image.toDrive({
       image: MTR_masked.unmask(0),
       description: "MTR"+year+"reg3",
       region: geometryIII,
-      scale: 90,
-      crs: crs,
-      crsTransform: transform
+      maxPixels: 1e9,
+      scale: 30,
+      //crs: crs,
+      //crsTransform: transform
     });
       
   Export.image.toDrive({
       image: MTR_masked.unmask(0),
       description: "MTR"+year+"reg4",
       region: geometryIV,
-      scale: 90,
-      crs: crs,
-      crsTransform: transform
+      maxPixels: 1e9,
+      scale: 30,
+      //crs: crs,
+      //crsTransform: transform
     });
-    */  
+  }  
     
   // Add each layer to a list, so as to build an ImageCollection for Video
   allMTR_list.push(MTR_masked);
 }
 
-/* ------------------------- VIDEO OUTPUT ---------------------------------------------
+/* ------------------------- VIDEO OUTPUT --------------------------------------------- */
+
+if (exportVideo === true) {
 // Create an ImageCollection of all images and use that to export a video
 var reversedList = allMTR_list.reverse();
 var allMTR = ee.ImageCollection(reversedList).map(function(image){
@@ -263,8 +361,8 @@ Export.video.toDrive({
   region: HobetBounds,
   scale: 60,                     // Scale in m
   });
-//*/
-
+//
+}
 
 
 
@@ -308,3 +406,5 @@ var vector_MTR = MTR_1_clipped.reduceToVectors({
 // - 7/07: Add new mask/study area; code for own greenest pixel composite
 // - 7/13: Updated Erode/Dilate order and buffer distance
 // - 7/14: Add yearly thresholds; add buffered mine permits
+// - 7/15: Improve image/video exporting
+// - 7/19: Add ability to process early landsat (now runs excruciatingly slow)
