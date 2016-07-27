@@ -372,7 +372,6 @@ Export.video.toDrive({
 //
 }
 
-print(MTR_area);
 
 //------------------------------------ Work in Progress ------------------------------------
 // Code below this point is still being tested, run at your own risk...
