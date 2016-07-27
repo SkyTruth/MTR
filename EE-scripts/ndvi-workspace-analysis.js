@@ -3,14 +3,18 @@
    and other surface coal mining. This script is the full, complete version for analysis,
    meaning it will take a long time to run. 
    
-   Playground code: https://code.earthengine.google.com/be500574a42cbd1f49fe4cffcf6d2dd5
+   Playground code: https://code.earthengine.google.com/4221681cb3c1fdee3b9b33bfc03d0f69
 ///////////////////////////////////////////////////////////////////////////////////////*/
 
-/* ------------------------------------- RUN EXPORTING? ----------------------------- */
+/* ------------------------------------- SCRIPT TASKS ------------------------------- */
+// Trigger this to true to display yearly mining extent layers on run (will always be added to layer selector)
+var yearlyLayers = false;
 // Trigger this to true to run image exporting via Tasks
 var exportImages = false;
 // Trigger this to true to run video exporting via tasks
 var exportVideo = false;
+// Trigger this to true to run area calculation
+var areaCalc = false;
 
 /*------------------------------------ IMPORT STUDY AREA ---------------------------- */
 var studyArea = ee.FeatureCollection('ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U');
@@ -45,6 +49,12 @@ var miningPermits = ee.Image('users/andrewpericak/allMinePermits');
 // All surface mining permits, buffered 1000 m
 // Get the link here: https://drive.google.com/file/d/0B_PTuMKVy7beSWdZUkJIS3hneW8/view
 
+var miningPermits_noBuffer = ee.Image('users/andrewpericak/allMinePermits_noBuffer');
+// All surface mining permits, without any buffer
+
+// This unmasks previously-masked areas within the mine permits
+var mask_input_excludeMines = mask_input_60m_2015.where(miningPermits_noBuffer.eq(1),0);
+
 /* ----------------------------------- VISUALIZATION / SETUP ------------------------------
 Adds study area; various areas of interest  */
 
@@ -52,7 +62,7 @@ Map.addLayer(studyArea, {}, "Study area");
 
 // Choose your favorite area of interest! Comment out all but one:
 //Map.centerObject(studyArea);        // Full study extent
-Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
+//Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
 //Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
 //Map.setCenter(-83.224567, 37.355144, 11);     // Near Dice, KY
 //Map.setCenter(-83.931184, 36.533646, 12);     // Near Log Mountain, TN
@@ -85,6 +95,8 @@ var cleaner = function(image){
     return ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
 };
 
+// This function, used for Landsat 1 & 2, cleans imagery of errors and attempts to remove clouds
+// Once it does that cleaning, it calculates NDVI for the image
 var earlyLScleaner = function(image){
     var B4 = image.select("B4");
     var B5 = image.select("B5");
@@ -92,6 +104,7 @@ var earlyLScleaner = function(image){
     var errorMask = ee.Image(0).where((B4.gte(0.065)).and(B5.gte(0)).and(B7.lte(0.32)),1); 
     var cleanedImage = image.updateMask(errorMask);
     
+    // See Braaten, Cohen, and Yang 2015, "Automated Cloud and Cloud Shadow Identification in Landsat MSS Imagery for Temperate Ecosystems", Remote Sensing of Environment 169
     var NDGR = cleanedImage.normalizedDifference(["B4","B5"]); // Not NDVI
     var B4img = cleanedImage.select("B4");
     var cloud1 = ee.Image(0).where((NDGR.gt(0).and(B4img.gt(0.175))).or(B4img.gt(0.39)),1);
@@ -106,9 +119,13 @@ var earlyLScleaner = function(image){
     return cleanedImage.addBands(ndvi).clip(studyArea);
 };
 
+// This loop runs processing for each year between 1972 and 2015, performing certain code based off
+// whatever year it's looking at. Note some early years get excluded.
 for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
   
-  // Determine what imagery dataset to use, based off year loop
+  // Determine what imagery dataset to use
+  // NDVIbands is a flag for later, to decide what NDVI calculation to perform
+  // outlierValue is used in the cleaner function (above) for removing erroneously high values
   if (year <= 1974){
     var imagery = ee.ImageCollection("LANDSAT/LM1_L1T");  // Landsat 1: 1972 - 1974
     var NDVIbands = 75;
@@ -123,29 +140,25 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
     var imagery = ee.ImageCollection("LANDSAT/LT5_L1T");  // Landsat 5: 1984 - 2011
     var NDVIbands = 43;
     var outlierValue = 250;
-    var rgb_vis = {min:0, max:0.3, bands:['B3','B2','B1']};
   }
   else if (year == 2012){
     var imagery = ee.ImageCollection("LANDSAT/LE7_L1T");  // Landsat 7: 2012
     var NDVIbands = 43;
     var outlierValue = 250;
-    var rgb_vis = {min:0, max:0.25, bands:['B3','B2','B1']};
   }
   else if (year >= 2013){
-    var imagery = ee.ImageCollection("LANDSAT/LC8_L1T");  // Landsat 8: 2013 - 
-    var NDVIbands = 54; // Because different bands are needed for LS8
+    var imagery = ee.ImageCollection("LANDSAT/LC8_L1T");  // Landsat 8: 2013 - 2015
+    var NDVIbands = 54;
     var outlierValue = 64256;
-    var rgb_vis = {min:0, max:0.25, bands:['B4','B3','B2']};
   }
-  
 
-  // Calculate NDVI and create greenest pixel composite 
-  // (using normalizedDifference function; select correct bands per sensor)
+  // Calculate NDVI and create greenest pixel composite; this varies based on both the year of the
+  // imagery and on what Landsat bands are used to perform NDVI calcuation
   if (NDVIbands == 75){
     if (year >= 1972 && year <= 1973){continue;}
     else if (year == 1974){
       var yearImgs = imagery
-        .filterDate("1972-01-01", "1974-12-31")
+        .filterDate("1972-01-01", "1974-12-31") // Note these early years are hard-coded in
         .filterBounds(studyArea)
         .map(cleaner)
         .map(earlyLScleaner);
@@ -182,9 +195,8 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
   }
   
   else if (NDVIbands == 54){
-    // Select specific year for analysis and clean raw input data
     var yearImgs = imagery
-      .filterDate(year+"-01-01", year+"-12-31")
+      .filterDate(year+"-01-01", year+"-12-31") // These later sensors don't need hard-coded years
       .filterBounds(studyArea)
       .map(cleaner);
     var ndCalc = yearImgs.map(function(image){
@@ -194,7 +206,6 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
     var NDVI = ndCalc.select("nd").qualityMosaic("nd");
   }
   else if (NDVIbands == 43){
-    // Select specific year for analysis and clean raw input data
     var yearImgs = imagery
       .filterDate(year+"-01-01", year+"-12-31")
       .filterBounds(studyArea)
@@ -207,10 +218,11 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
   }
   
   // Create a mask of areas that ARE NOT mines (value of 1 to locations where NDVI is <= threshold)
+  // This pulls the specific threshold for that year from the dictionary above
   var lowNDVI = NDVI.where(NDVI.lte(NDVI_Threshold[year]),1).where(NDVI.gt(NDVI_Threshold[year]),0);
   
   // Create binary image containing the intersection between the LowNDVI and anywhere the inverted mask is 1
-  var MTR = lowNDVI.and(mask_input_60m_2015.eq(0));
+  var MTR = lowNDVI.and(mask_input_excludeMines.eq(0));
   
   // Erode/dilate MTR sites to remove outliers (pixel clean-up)
   var MTR_cleaning = MTR
@@ -233,7 +245,7 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
     var palette = "d7301f";
   }
   else if (year > 1982 && year <= 1988){
-    var palette = "ef6548"
+    var palette = "ef6548";
   }
   else if (year > 1988 && year <= 1993 ){
     var palette = "fc8d59";
@@ -253,38 +265,39 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
   
   // Add each layer to the map; 
   // only years divisible by 5 turned on by default because this takes a while to display
-  if (year % 5 === 0){
-    Map.addLayer(MTR_masked, {palette: palette}, ("MTR "+ year), true);
+  if (year % 5 === 0 && yearlyLayers === true){
+    Map.addLayer(MTR_masked, {palette: palette}, ("MTM "+ year), true);
   }
-  else {
-    Map.addLayer(MTR_masked, {palette: palette}, ("MTR "+ year), false);
+  else if ((year % 5 !== 0 && yearlyLayers === true) || yearlyLayers === false){
+     Map.addLayer(MTR_masked, {palette: palette}, ("MTM "+ year), false);
   }
   
-  /*--------------------------------- AREA CALCULATION ---------------------------------
+  /* --------------------------------- AREA CALCULATION --------------------------------- */
   
-  // Get a pixel area image, which will apply to any scale you provide
-  var Area = ee.Image.pixelArea();
-  // The area calculation, which currently burns out the server
-  var areaAll = MTR_masked.multiply(Area).reduceRegion({
-    reducer: ee.Reducer.sum(),
-    geometry: geometryI,
-    scale: 30,
-    crs: 'EPSG:3857', // Kroodsma did not include this option
-    maxPixels: 1e9
-  });
-  var areaKmSq = ee.Number(areaAll.get('constant')).divide(1000*1000);
-  
-  // Add these areas and their corresponding year to 2D array
-  MTR_area[0].push(year);
-  MTR_area[1].push(areaKmSq);
-  */
+  if (areaCalc === true){
+    // Get a pixel area image, which will apply to any scale you provide
+    var Area = ee.Image.pixelArea();
+    // The area calculation
+    var areaAll = MTR_masked.multiply(Area).reduceRegion({
+      reducer: ee.Reducer.sum(),
+      geometry: geometryI,
+      scale: 30,
+      crs: 'EPSG:5072', // Equal-area projection; http://epsg.io/5072
+      maxPixels: 1e9
+    });
+    var areaKmSq = ee.Number(areaAll.get('constant')).divide(1000*1000);
+    
+    // Add these areas and their corresponding year to 2D array
+    // This doesn't quite do what I want it to yet
+    MTR_area[0].push(year);
+    MTR_area[1].push(areaKmSq);
+    
+    // No code yet for actually executing this, since it takes forever / crashes
+  }
   
   /* -------------------------------- EXPORTING ------------------------------------------- */
   
   if (exportImages === true) {
-  // Set CRS and transform; create rectangular boundaries for exporting
-  //var crs = MTR_masked.projection().atScale(30).getInfo().crs;
-  //var transform = MTR_masked.projection().atScale(30).getInfo().transform;
 
   /*// Export entire study region to GDrive (many images; one per year!)
   Export.image.toDrive({
@@ -292,8 +305,7 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
       description: "MTR_"+year,
       region: exportbounds,
       scale: 900,
-      //crs: crs,
-      //crsTransform: transform
+      crs: 'EPSG:5072',
     });*/
     
   // OR, export one or some of the subregions to GDrive (many images!) 
@@ -303,8 +315,7 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
       region: geometryI,
       maxPixels: 1e9,
       scale: 30,
-      //crs: crs,
-      //crsTransform: transform
+      crs: 'EPSG:5072',
     });
   Export.image.toDrive({
       image: MTR_masked.unmask(0),
@@ -312,8 +323,7 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
       region: geometryII,
       maxPixels: 1e9,
       scale: 30,
-      //crs: crs,
-      //crsTransform: transform
+      crs: 'EPSG:5072'
     });
   Export.image.toDrive({
       image: MTR_masked.unmask(0),
@@ -321,8 +331,7 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
       region: geometryIII,
       maxPixels: 1e9,
       scale: 30,
-      //crs: crs,
-      //crsTransform: transform
+      crs: 'EPSG:5072'
     });
       
   Export.image.toDrive({
@@ -331,8 +340,7 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
       region: geometryIV,
       maxPixels: 1e9,
       scale: 30,
-      //crs: crs,
-      //crsTransform: transform
+      crs: 'EPSG:5072'
     });
   }  
     
@@ -364,7 +372,7 @@ Export.video.toDrive({
 //
 }
 
-
+print(MTR_area);
 
 //------------------------------------ Work in Progress ------------------------------------
 // Code below this point is still being tested, run at your own risk...
@@ -408,3 +416,4 @@ var vector_MTR = MTR_1_clipped.reduceToVectors({
 // - 7/14: Add yearly thresholds; add buffered mine permits
 // - 7/15: Improve image/video exporting
 // - 7/19: Add ability to process early landsat (now runs excruciatingly slow)
+// - 7/27: General cleaning; triggers for certain processing; unmasking mine permit areas
