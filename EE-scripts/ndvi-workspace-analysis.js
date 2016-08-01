@@ -3,7 +3,7 @@
    and other surface coal mining. This script is the full, complete version for analysis,
    meaning it will take a long time to run. 
    
-   Playground code: https://code.earthengine.google.com/828b104dc9502086cf5c26dc8be3cc88
+   Playground code: https://code.earthengine.google.com/27b9023ebb9257895e9e3a3ff62401d0
 ///////////////////////////////////////////////////////////////////////////////////////*/
 
 /* ------------------------------------- SCRIPT TASKS ------------------------------- */
@@ -120,8 +120,7 @@ var earlyLScleaner = function(image){
 // This function, used for Landsat 5-8, just creates an NDVI band
 var ndCalc = function(image){
   var calc = image
-    //.normalizedDifference([IRband,Rband])
-    .expression
+    .normalizedDifference([IRband,Rband])
     .clip(studyArea);
   return image.addBands(calc);
 };
@@ -147,7 +146,6 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
     var imagery = ee.ImageCollection("LANDSAT/LT5_L1T");  // Landsat 5: 1984 - 2011
     var NDVIbands = 43;
     var outlierValue = 250;
-    var SRimagery = ee.ImageCollection("LANDSAT/LT5_SR");
   }
   else if (year == 2012){
     var imagery = ee.ImageCollection("LANDSAT/LE7_L1T");  // Landsat 7: 2012
