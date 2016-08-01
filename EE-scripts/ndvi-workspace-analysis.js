@@ -3,12 +3,12 @@
    and other surface coal mining. This script is the full, complete version for analysis,
    meaning it will take a long time to run. 
    
-   Playground code: https://code.earthengine.google.com/4221681cb3c1fdee3b9b33bfc03d0f69
+   Playground code: https://code.earthengine.google.com/828b104dc9502086cf5c26dc8be3cc88
 ///////////////////////////////////////////////////////////////////////////////////////*/
 
 /* ------------------------------------- SCRIPT TASKS ------------------------------- */
 // Trigger this to true to display yearly mining extent layers on run (will always be added to layer selector)
-var yearlyLayers = false;
+var yearlyLayers = true;
 // Trigger this to true to run image exporting via Tasks
 var exportImages = false;
 // Trigger this to true to run video exporting via tasks
@@ -24,10 +24,8 @@ var studyArea = ee.FeatureCollection('ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h
 // These thresholds set per each year (and associated sensor) using Otsu method; 
 // see https://github.com/SkyTruth/MTR/blob/master/EE-scripts/OtsuThresholds.js
 // Note: The first four are a series of years; 1983 is omitted due to lack of quality imagery
-//    1974 = 1972-1974
-//    1977 = 1975-1977
-//    1980 = 1978-1980
-//    1982 = 1981-1982
+//    1974 = 1972-1974      1977 = 1975-1977
+//    1980 = 1978-1980      1982 = 1981-1982
 
 var NDVI_Threshold = {
   1974: 0.4699,   1977: 0.5950,   1980: 0.5749,   1982: 0.5375,   1984: 0.5154,
@@ -62,7 +60,7 @@ Map.addLayer(studyArea, {}, "Study area");
 
 // Choose your favorite area of interest! Comment out all but one:
 //Map.centerObject(studyArea);        // Full study extent
-//Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
+Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
 //Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
 //Map.setCenter(-83.224567, 37.355144, 11);     // Near Dice, KY
 //Map.setCenter(-83.931184, 36.533646, 12);     // Near Log Mountain, TN
@@ -119,6 +117,15 @@ var earlyLScleaner = function(image){
     return cleanedImage.addBands(ndvi).clip(studyArea);
 };
 
+// This function, used for Landsat 5-8, just creates an NDVI band
+var ndCalc = function(image){
+  var calc = image
+    //.normalizedDifference([IRband,Rband])
+    .expression
+    .clip(studyArea);
+  return image.addBands(calc);
+};
+
 // This loop runs processing for each year between 1972 and 2015, performing certain code based off
 // whatever year it's looking at. Note some early years get excluded.
 for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
@@ -129,7 +136,7 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
   if (year <= 1974){
     var imagery = ee.ImageCollection("LANDSAT/LM1_L1T");  // Landsat 1: 1972 - 1974
     var NDVIbands = 75;
-    var outlierValue = 250;
+    var outlierValue = 250; // ~98% of [0-255]
   }
   else if (year > 1974 && year <= 1983){
     var imagery = ee.ImageCollection("LANDSAT/LM2_L1T");  // Landsat 2: 1975 - 1982 [omit 1983]
@@ -140,6 +147,7 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
     var imagery = ee.ImageCollection("LANDSAT/LT5_L1T");  // Landsat 5: 1984 - 2011
     var NDVIbands = 43;
     var outlierValue = 250;
+    var SRimagery = ee.ImageCollection("LANDSAT/LT5_SR");
   }
   else if (year == 2012){
     var imagery = ee.ImageCollection("LANDSAT/LE7_L1T");  // Landsat 7: 2012
@@ -149,13 +157,13 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
   else if (year >= 2013){
     var imagery = ee.ImageCollection("LANDSAT/LC8_L1T");  // Landsat 8: 2013 - 2015
     var NDVIbands = 54;
-    var outlierValue = 64256;
+    var outlierValue = 64256; // ~98% of [0-65535]
   }
 
   // Calculate NDVI and create greenest pixel composite; this varies based on both the year of the
   // imagery and on what Landsat bands are used to perform NDVI calcuation
   if (NDVIbands == 75){
-    if (year >= 1972 && year <= 1973){continue;}
+    if (year >= 1972 && year <= 1973){continue;}  // Three-year analysis, so "skip" 1972 and 1973
     else if (year == 1974){
       var yearImgs = imagery
         .filterDate("1972-01-01", "1974-12-31") // Note these early years are hard-coded in
@@ -195,26 +203,24 @@ for (var year = 2015; year >= 1972; year--){ // Years of interest for the study
   }
   
   else if (NDVIbands == 54){
+    var IRband = "B5";
+    var Rband = "B4";
     var yearImgs = imagery
       .filterDate(year+"-01-01", year+"-12-31") // These later sensors don't need hard-coded years
       .filterBounds(studyArea)
-      .map(cleaner);
-    var ndCalc = yearImgs.map(function(image){
-      var calc = image.normalizedDifference(["B5","B4"]).clip(studyArea);
-      return image.addBands(calc);
-    });
-    var NDVI = ndCalc.select("nd").qualityMosaic("nd");
+      .map(cleaner)
+      .map(ndCalc);
+    var NDVI = yearImgs.select("nd").qualityMosaic("nd");
   }
   else if (NDVIbands == 43){
+    var IRband = "B4";
+    var Rband = "B3";
     var yearImgs = imagery
       .filterDate(year+"-01-01", year+"-12-31")
       .filterBounds(studyArea)
-      .map(cleaner);
-    var ndCalc = yearImgs.map(function(image){
-      var calc = image.normalizedDifference(["B4","B3"]).clip(studyArea);
-      return image.addBands(calc);
-    });
-    var NDVI = ndCalc.select("nd").qualityMosaic("nd");
+      .map(cleaner)
+      .map(ndCalc);
+    var NDVI = yearImgs.select("nd").qualityMosaic("nd");
   }
   
   // Create a mask of areas that ARE NOT mines (value of 1 to locations where NDVI is <= threshold)
