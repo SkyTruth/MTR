@@ -4,6 +4,8 @@
 
 `OtsuThresholds.js` : Script to derive yearly NDVI threshold, based on Otsu method
 
+`export-imagery-accuracy-assessment.js` : Script to export Landsat/NAIP imagery for use in accuracy assessment
+
 `greenestComposite_LS1-3.js` : Script to create greenest pixel composites for early Landsat satellites
 
 `ndvi-workspace-analysis.js` : Current version of mining extent script; full version used for analysis
