@@ -232,7 +232,7 @@ var lsCollection = ee.ImageCollection((lm1Collection)
 // Although maybe the new UI API could help with this...
 var year = 1985; 
 
-// Make a list of annual composites.
+// Make the annual composite for the year noted above
 var composite = lsCollection
       .filter(ee.Filter.calendarRange(year, year, 'year'))
       //.filter(ee.Filter.calendarRange(year, year+2, 'year')) // Three-year MSS
