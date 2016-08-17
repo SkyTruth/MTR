@@ -51,23 +51,7 @@ var thresholds = ee.Dictionary({
 // Otsu altogether since using multiple sensors for one year may not give us
 // the bimodal distribution necessary for Otsu.
 
-/*------------------------------ IMPORT MASKS --------------------------------*/
-var mask_input_60m_2015 = ee.Image('users/jerrilyn/2015mask-PM-fullstudy-area');
-// Roads, water bodies, urban areas, etc., buffered 60 m
-// Get the link here: https://drive.google.com/file/d/0B_MArPTqurHudFp6STU4ZzJHRmc/view
-
-var miningPermits = ee.Image('users/andrewpericak/allMinePermits');
-// All surface mining permits, buffered 1000 m
-// Get the link here: https://drive.google.com/file/d/0B_PTuMKVy7beSWdZUkJIS3hneW8/view
-
-var miningPermits_noBuffer = ee.Image('users/andrewpericak/allMinePermits_noBuffer');
-// All surface mining permits, without any buffer
-
-// This excludes from the 60 m mask (mask_input_60m_2015) any areas within the
-// the mine permit boundaries. Since the 60 m mask is "inversed" (i.e., 0 means
-// keep and 1 means eventually mask), this line sets the mine permit areas
-// (labeled as 1) to 0.
-var mask_input_excludeMines = mask_input_60m_2015.where(miningPermits_noBuffer.eq(1), 0);
+/*------------------------- MAP VISUALIZATION --------------------------------*/
 
 // Choose your favorite area of interest! Comment out all but one:
 //Map.centerObject(studyArea);        // Full study extent
