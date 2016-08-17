@@ -70,6 +70,10 @@ var thresholds = ee.Dictionary({
   2010: 0.5250,   2011: 0.5305,   2012: 0.5465,   2013: 0.5812,   2014: 0.5750,   
   2015: 0.5927
 });
+// Other note: by using the full set of Landsat data (all sensors), then we 
+// need to run this Otsu analysis again. Alternatively, we may need to scrap
+// Otsu altogether since using multiple sensors for one year may not give us
+// the bimodal distribution necessary for Otsu.
 
 /*------------------------------ IMPORT MASKS --------------------------------*/
 var mask_input_60m_2015 = ee.Image('users/jerrilyn/2015mask-PM-fullstudy-area');
