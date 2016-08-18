@@ -2,15 +2,15 @@
 
 **What scripts are in this folder? Describe here.**
 
-`OtsuThresholds.js` : Script to derive yearly NDVI threshold, based on Otsu method
+`OtsuThresholds.js`: Script to derive yearly NDVI threshold, based on Otsu method
 
-`export-imagery-accuracy-assessment.js` : Script to export Landsat/NAIP imagery for use in accuracy assessment
+`annualMiningArea.js`: Part 2 of the analysis script, which generates mining area per year
 
-`greenestComposite_LS1-3.js` : Script to create greenest pixel composites for early Landsat satellites
+`countInputImagesPerYear.js`: Script to determine how much raw Landsat imagery there is across study area
 
-`ndvi-workspace-analysis.js` : Current version of mining extent script; full version used for analysis
+`export-imagery-accuracy-assessment.js`: Script to create RGB images for accuracy assessment classification
 
-`ndvi-workspace-viz.js` : Mining extent script optimized for visualization purposes
+`greenestCompositesToAssets.js`: Part 1 of the analysis script, which creates an ImageCollection of annual greenest pixel composites
 
 ## Other Snippets
 
