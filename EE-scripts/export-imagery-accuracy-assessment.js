@@ -10,7 +10,7 @@ This script will export imagery only falling directly underneath given sample ar
 buffer around those sample plots. */
 
 // CHANGE THE YEAR for whatever year you need imagery
-var year = 2008;
+var year = 2015;
 
 var sampleAreas = ee.FeatureCollection('ft:1k7JWWzOELDgQ_LG3wzZFgXsxygm73pHWXnuPsZjz'); // Original sample areas in EPSG:5072
 var sampleAreaBuffer = sampleAreas.geometry().buffer(1000); // Sample areas buffered 1 km to get surroundings
@@ -30,7 +30,8 @@ if (year <= 1974){
       var clipped = toa.clip(sampleAreaBuffer);
       return clipped;
   })
-  .median());
+  //.median());
+  .reduce(ee.Reducer.percentile([15])));
 }
 else if (year > 1974 && year <= 1983){
   var LSimagery = ee.Image(ee.ImageCollection("LANDSAT/LM2_L1T")  // Landsat 2: 1975 - 1982 [omit 1983]
@@ -41,7 +42,8 @@ else if (year > 1974 && year <= 1983){
       var clipped = toa.clip(sampleAreaBuffer);
       return clipped;
   })
-  .median());
+  //.median());
+  .reduce(ee.Reducer.percentile([15])));
 }
 else if (year > 1983 && year <= 2011){
   var LSimagery = ee.Image(ee.ImageCollection("LANDSAT/LT5_L1T_TOA")  // Landsat 5: 1984 - 2011
@@ -51,7 +53,8 @@ else if (year > 1983 && year <= 2011){
       var clipped = image.clip(sampleAreaBuffer);
       return clipped.select("B1","B2","B3","B4");
     })
-    .median());
+    //.median());
+    .reduce(ee.Reducer.percentile([15])));
 }
 else if (year == 2012){
   var LSimagery = ee.Image(ee.ImageCollection("LANDSAT/LE7_L1T_TOA")  // Landsat 7: 2012
@@ -61,7 +64,8 @@ else if (year == 2012){
       var clipped = image.clip(sampleAreaBuffer);
       return clipped.select("B1","B2","B3","B4");
     })
-    .median());
+    //.median());
+    .reduce(ee.Reducer.percentile([15])));
 }
 else if (year >= 2013){
   var LSimagery = ee.Image(ee.ImageCollection("LANDSAT/LC8_L1T_TOA")  // Landsat 8: 2013 - 
@@ -71,13 +75,14 @@ else if (year >= 2013){
       var clipped = image.clip(sampleAreaBuffer);
       return clipped.select("B2","B3","B4","B5");
     })
-    .median());
+    //.median());
+    .reduce(ee.Reducer.percentile([15])));
 }
 
 // This exports the Landsat imagery
 Export.image.toDrive({
   image: LSimagery,
-  description: "Landsat_"+year,
+  description: "REVISED_Landsat_"+year,
   region: exportbounds,
   scale: 30,
   crs: "EPSG:5072",
@@ -87,7 +92,7 @@ Export.image.toDrive({
 
 //Map.addLayer(LSimagery);
 
-/* --------------------------- NAIP EXPORTNG -------------------------------------------- */
+/* --------------------------- NAIP EXPORTNG -------------------------------------------- 
 
 // This function adds the geometry of each sample area as a property to each feature
 var looper = sampleAreas.map(function(feature){
@@ -126,5 +131,6 @@ for (var i = 10; i <= 19; i++){
 // By adding the imagery and sample areas for your given year, you can see what sample areas you
 // would need to run the Export tasks for -- no use in exporting imagery over sample areas without 
 // NAIP coverage!
-Map.addLayer(NAIPimagery);
-Map.addLayer(sampleAreas);
+//Map.addLayer(NAIPimagery);
+//Map.addLayer(sampleAreas);
+*/
