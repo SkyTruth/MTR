@@ -10,42 +10,55 @@ var greenestComposites = ee.ImageCollection("users/andrewpericak/miningComposite
 // https://www.google.com/fusiontables/DataSource?docid=1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U
 var studyArea = ee.FeatureCollection('ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U');
 
-var geometryI = /* color: d63000 */ee.Feature(
-        ee.Geometry.Polygon(
-            [[[-79.612, 39.037],
-              [-79.612, 37.3525],
-              [-82.421, 37.3525],
-              [-82.421, 39.037]]]),
-        {
-          "system:index": "0"
-        }),
-    geometryII = /* color: 98ff00 */ee.Feature(
-        ee.Geometry.Polygon(
-            [[[-82.421, 38.942],
-              [-82.421, 37.3525],
-              [-84.993, 37.3525],
-              [-84.993, 38.942]]]),
-        {
-          "system:index": "0"
-        }),
-    geometryIII = /* color: 0B4A8B */ee.Feature(
-        ee.Geometry.Polygon(
-            [[[-82.421, 37.3525],
-              [-82.421, 35.637],
-              [-85.811, 35.637],
-              [-85.811, 37.3525]]]),
-        {
-          "system:index": "0"
-        }),
-    geometryIV = /* color: ffc82d */ee.Feature(
-        ee.Geometry.Polygon(
-            [[[-79.849, 37.3525],
-              [-79.849, 35.763],
-              [-82.421, 35.763],
-              [-82.421, 37.3525]]]),
-        {
-          "system:index": "0"
-        });
+// var geometryI = /* color: d63000 */ee.Feature(
+//         ee.Geometry.Polygon(
+//             [[[-79.612, 39.037],
+//               [-79.612, 37.3525],
+//               [-82.421, 37.3525],
+//               [-82.421, 39.037]]]),
+//         {
+//           "system:index": "0"
+//         }),
+//     geometryII = /* color: 98ff00 */ee.Feature(
+//         ee.Geometry.Polygon(
+//             [[[-82.421, 38.942],
+//               [-82.421, 37.3525],
+//               [-84.993, 37.3525],
+//               [-84.993, 38.942]]]),
+//         {
+//           "system:index": "0"
+//         }),
+//     geometryIII = /* color: 0B4A8B */ee.Feature(
+//         ee.Geometry.Polygon(
+//             [[[-82.421, 37.3525],
+//               [-82.421, 35.637],
+//               [-85.811, 35.637],
+//               [-85.811, 37.3525]]]),
+//         {
+//           "system:index": "0"
+//         }),
+//     geometryIV = /* color: ffc82d */ee.Feature(
+//         ee.Geometry.Polygon(
+//             [[[-79.849, 37.3525],
+//               [-79.849, 35.763],
+//               [-82.421, 35.763],
+//               [-82.421, 37.3525]]]),
+//         {
+//           "system:index": "0"
+//         });
+// var features = ee.FeatureCollection([geometryI, geometryII, geometryIII, geometryIV]);
+        
+var fips_codes = [21013,21019,21025,21043,21051,21053,21063,21065,21071,21089,
+                  21095,21109,21115,21119,21121,21125,21127,21129,21131,21133,
+                  21135,21147,21153,21159,21165,21175,21189,21193,21195,21197,
+                  21199,21203,21205,21231,21235,21237,47001,47013,47025,47035,
+                  47049,47129,47133,47137,47141,47145,47151,51027,51051,51105,
+                  51167,51169,51185,51195,51720,54005,54011,54015,54019,54025,
+                  54039,54043,54045,54047,54053,54055,54059,54067,54075,54081,
+                  54089,54099,54101,54109];
+
+var allCounties =  ee.FeatureCollection('ft:1S4EB6319wWW2sWQDPhDvmSBIVrD3iEmCLYB7nMM');
+var features = allCounties.filter(ee.Filter.inList('FIPS', fips_codes));
 
 /*---------------------------- SET NDVI THRESHOLDS ---------------------------*/
 // These thresholds set per each year (and associated sensor) using Otsu method; 
@@ -140,8 +153,6 @@ var composites = ee.ImageCollection(greenestComposites.map(function(image) {
 
 
 /*------------ SUMMARIZE MINING AREA PER FEATURE PER YEAR --------------------*/
-
-var features = ee.FeatureCollection([geometryI, geometryII, geometryIII, geometryIV]);
 
 // This creates a table listing the area of active mining per year, per 
 // subregion noted above (to allow this to actually export)
