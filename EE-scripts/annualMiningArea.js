@@ -214,7 +214,7 @@ var mining = ee.ImageCollection(nullCleaning3.map(function(image){
   var area = ee.Image.pixelArea().multiply(mtrMasked)
     .divide(ee.Image.constant(year)).rename('area');
   
-  return image.addBands(mtrMasked).addBands(area).set({"year": year});
+  return image.addBands(mtrMasked).addBands(area);
 }));
 
 /*------------ SUMMARIZE MINING AREA PER FEATURE PER YEAR --------------------*/
