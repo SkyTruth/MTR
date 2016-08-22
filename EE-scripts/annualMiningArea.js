@@ -67,26 +67,25 @@ var features = allCounties.filter(ee.Filter.inList('FIPS', fips_codes));
 // imagery at a time; this table indicates which three-year periods:
 //     Key  = 3-year period
 //    -------------------
-//    1974  =   1972-1974
-//    1977  =   1975-1977
-//    1980  =   1978-1980
-//    1982  =   1981-1982
+//    1972  =   1972-1974
+//    1975  =   1975-1977
+//    1978  =   1978-1980
+//    1981  =   1981-1982
 // Note: 1983 is omitted due to lack of quality imagery
 
 var thresholds = ee.Dictionary({
-  1974: 0.4699,   1977: 0.5950,   1980: 0.5749,   1982: 0.5375,   1984: 0.5154,
-  1985: 0.5120,   1986: 0.5425,   1987: 0.5199,   1988: 0.5290,   1989: 0.4952,
-  1990: 0.5022,   1991: 0.4940,   1992: 0.4892,   1993: 0.5237,   1994: 0.5467,
-  1995: 0.5494,   1996: 0.5574,   1997: 0.5327,   1998: 0.5229,   1999: 0.5152,
-  2000: 0.5063,   2001: 0.5456,   2002: 0.5242,   2003: 0.5239,   2004: 0.5821,
-  2005: 0.5401,   2006: 0.5552,   2007: 0.5609,   2008: 0.5454,   2009: 0.5443,
-  2010: 0.5250,   2011: 0.5305,   2012: 0.5465,   2013: 0.5812,   2014: 0.5750,   
-  2015: 0.5927
+  1972: 0.4639,   1975: 0.5731,   1978: 0.5899,   1981: 0.5465,   1984: 0.4946,
+  1985: 0.5069,   1986: 0.5263,   1987: 0.5089,   1988: 0.5212,   1989: 0.4999,
+  1990: 0.4791,   1991: 0.4638,   1992: 0.4646,   1993: 0.4946,   1994: 0.5244,
+  1995: 0.5362,   1996: 0.5357,   1997: 0.5234,   1998: 0.4975,   1999: 0.5154,
+  2000: 0.5064,   2001: 0.5533,   2002: 0.5413,   2003: 0.5201,   2004: 0.5320,
+  2005: 0.5458,   2006: 0.5493,   2007: 0.5656,   2008: 0.5435,   2009: 0.5353,
+  2010: 0.5344,   2011: 0.5404,   2012: 0.5224,   2013: 0.5434,   2014: 0.5545,   
+  2015: 0.5753
 });
 // Other note: by using the full set of Landsat data (all sensors), then we 
-// need to run this Otsu analysis again. Alternatively, we may need to scrap
-// Otsu altogether since using multiple sensors for one year may not give us
-// the bimodal distribution necessary for Otsu.
+// we may need to scrap Otsu altogether since using multiple sensors for one 
+// year may not give us the bimodal distribution necessary for Otsu.
 
 /*------------------------------ IMPORT MASKS --------------------------------*/
 var mask_input_60m_2015 = ee.Image('users/jerrilyn/2015mask-PM-fullstudy-area');
@@ -118,19 +117,86 @@ var mask_input_excludeMines = mask_input_60m_2015.where(miningPermits_noBuffer.e
 
 // Below, for each image in the ImageCollection created in the other script,
 // determine whether a pixel is or isn't a mine based on NDVI and given
-// threshold.
-var composites = ee.ImageCollection(greenestComposites.map(function(image) {
-  
-  var year = image.get("year"); // Remember to add this property to the IC!
+// threshold. Then perform various cleaning algorithms.
+
+// This initially compares the NDVI at each pixel to the given threshold. The
+// resulting images are 1 = mine and 0 = non-mine.
+var rawMining = ee.ImageCollection(greenestComposites.map(function(image){
+  var year = image.get("year");
   var ndvi = image.select("NDVI");
   
   // This pulls the specific threshold for that year from the dictionary above
   var threshold = thresholds.get(ee.Number(year).format('%d'));
   var lowNDVI = ndvi.lte(ee.Image.constant(threshold));
+  return lowNDVI.set({"year": year});
+}));
+
+// This is the first step of the null-value cleaning (i.e., where there are no
+// pixel values for that year due to cloud cover and a lack of raw imagery.)
+// This function first creates a binary image where 1 = values that were null
+// in the rawMining image, and where 0 = everything else.
+var nullCleaning1 = ee.ImageCollection(rawMining.map(function(image){
+  var year = image.get("year");
+  var unmasked = image.lt(2).unmask().not().clip(studyArea);
+  return unmasked.set({"year": year});
+}));
+
+// Create dummy images so the null cleaning will work; essentially for 1983 and
+// 2016 (the years immediately before and after the years for which we have
+// Landsat scenes), we need images of value 0 so that the nullCleaning2 function
+// below actually works. Likewise for any of the MSS years, since we're doing
+// those in many years at a time. This means we can't clean any null values from 
+// 1984 or 2015 imagery, nor for 1972 - 1982.
+var dummy1971 = ee.Image(0).rename("NDVI").set({"year": 1971}).clip(nullCleaning1.geometry());
+var dummy1973 = ee.Image(0).rename("NDVI").set({"year": 1973}).clip(nullCleaning1.geometry());
+var dummy1974 = ee.Image(0).rename("NDVI").set({"year": 1974}).clip(nullCleaning1.geometry());
+var dummy1976 = ee.Image(0).rename("NDVI").set({"year": 1976}).clip(nullCleaning1.geometry());
+var dummy1977 = ee.Image(0).rename("NDVI").set({"year": 1977}).clip(nullCleaning1.geometry());
+var dummy1979 = ee.Image(0).rename("NDVI").set({"year": 1979}).clip(nullCleaning1.geometry());
+var dummy1980 = ee.Image(0).rename("NDVI").set({"year": 1980}).clip(nullCleaning1.geometry());
+var dummy1982 = ee.Image(0).rename("NDVI").set({"year": 1982}).clip(nullCleaning1.geometry());
+var dummy1983 = ee.Image(0).rename("NDVI").set({"year": 1983}).clip(nullCleaning1.geometry());
+var dummy2016 = ee.Image(0).rename("NDVI").set({"year": 2016}).clip(nullCleaning1.geometry());
+var rawMining2 = ee.ImageCollection(rawMining.merge(ee.ImageCollection(
+  [dummy1971,dummy1973,dummy1974,dummy1976,dummy1977,dummy1979,dummy1980,
+   dummy1982,dummy1983,dummy2016])));
+
+// This is the second step of the null-value cleaning. For each year, pull the
+// raw mining images for the years immediately prior and future, where in those
+// images 1 = mine and 0 = non-mine. Add those three images together; areas 
+// where the sum is 3 indicate that the null pixel is likely a mine, because
+// that pixel was a mine in the prior and future years.
+var nullCleaning2 = ee.ImageCollection(nullCleaning1.map(function(image){
+  var year = ee.Number(image.get("year"));
+  var priorYr = year.subtract(1);
+  var futureYr = year.add(1);
   
+  var imgPrevious = rawMining2.filterMetadata("year","equals",priorYr).first();
+  var imgNext = rawMining2.filterMetadata("year","equals",futureYr).first();
+  var summation = image.add(imgPrevious).add(imgNext);
+  var potentialMine = summation.eq(3);
+  return potentialMine.set({"year": year});
+}));
+
+// This is the third step of the null-value cleaning. Use the results of the
+// previous operation to turn any null values in the rawMining imagery into a
+// value of 1 if they were also a value of 1 from the nullCleaning2 imagery.
+
+var nullCleaning3 = ee.ImageCollection(rawMining.map(function(image){
+  var year = image.get("year");
+  var cleaningImg = nullCleaning2.filterMetadata("year","equals",year).first();
+  var updatedRaw = image.unmask().add(cleaningImg);
+  return updatedRaw.set({"year": year});
+}));
+
+// This performs other cleaning (mask, erosion/dilation, mine permit boundaries)
+// to further clean up the mining dataset.
+var mining = ee.ImageCollection(nullCleaning3.map(function(image){
+  
+  var year = image.get("year");
   // Create binary image containing the intersection between the LowNDVI and 
   // anywhere the inverted mask is 0
-  var mtr = lowNDVI.and(mask_input_excludeMines.eq(0));
+  var mtr = image.and(mask_input_excludeMines.eq(0));
   
   // Erode/dilate MTR sites to remove outliers (pixel clean-up)
   var mtrCleaned = mtr
@@ -148,9 +214,8 @@ var composites = ee.ImageCollection(greenestComposites.map(function(image) {
   var area = ee.Image.pixelArea().multiply(mtrMasked)
     .divide(ee.Image.constant(year)).rename('area');
   
-  return image.addBands(mtrMasked).addBands(area);
+  return image.addBands(mtrMasked).addBands(area).set({"year": year});
 }));
-
 
 /*------------ SUMMARIZE MINING AREA PER FEATURE PER YEAR --------------------*/
 
@@ -158,14 +223,15 @@ var composites = ee.ImageCollection(greenestComposites.map(function(image) {
 // subregion noted above (to allow this to actually export)
 var getFeatures = function(feature) {
   // collection is a collection of removal by year
-  return composites.map(function(image) {
+  var fips = feature.get("FIPS");
+  return mining.map(function(image) {
     var yearlyArea = image.select('area').reduceRegion({
       reducer: 'sum', 
       geometry: feature.geometry(), 
       scale: 30,
       maxPixels: 1e10
     });
-    return image.set(yearlyArea);
+    return image.set(yearlyArea).set({"FIPS": fips});
   });
 };
 var miningArea = features.map(getFeatures).flatten();
