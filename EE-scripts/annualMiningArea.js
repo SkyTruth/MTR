@@ -303,7 +303,7 @@ var noiseCleaning = ee.ImageCollection(nullCleaning3.map(function(image){
 // permit boundaries) to further clean up the mining dataset.
 var mining = ee.ImageCollection(noiseCleaning.map(function(image){
   
-  var year = image.get("year");
+  var year = ee.Number(image.get("year"));
   // Create binary image containing the intersection between the LowNDVI and 
   // anywhere the inverted mask is 0
   var mtr = image.and(mask_input_excludeMines.eq(0));
@@ -317,10 +317,10 @@ var mining = ee.ImageCollection(noiseCleaning.map(function(image){
   // Mask MTR by the erosion/dilation, and by mining permit locations buffered 
   // out 1 km
   var mtrMasked = mtrCleaned.updateMask(mtrCleaned.and(miningPermits))
-      .rename('MTR').toInt();
+      .multiply(year).rename('MTR').toInt();
   
   // Compute area per pixel
-  var area = ee.Image.pixelArea().multiply(mtrMasked).rename('area').toFloat();
+  var area = ee.Image.pixelArea().multiply(mtrMasked).divide(year).rename('area').toFloat();
   
   return image.addBands(mtrMasked).addBands(area).addBands(countyImg)
     .select(["MTR","area","FIPS"]);
@@ -358,13 +358,14 @@ Export.table.toDrive({
 var testCounty = 21013;
 var testYr = 1985;
 var testGeo = features.filterMetadata("FIPS","equals",testCounty).geometry();
-var testImg = ee.Image(mining.filterMetadata("year","equals",testYr).first());
+var testImg = ee.Image(mining.filterMetadata("year","equals",testYr).first())
+  .select("MTR","area"); // Can't export FIPS if we want summed area...
 
 var vectors = testImg.reduceToVectors({
-  reducer: ee.Reducer.first(),
+  reducer: ee.Reducer.sum(),  // Each polygon will have sum of its area
   geometry: testGeo,
   scale: 30,
-  labelProperty: testImg.get("year"),
+  labelProperty: "year",
   maxPixels: 1e10,
 });
 
@@ -377,13 +378,17 @@ Export.table.toDrive({
 /*---------------------------- EXPORT TO IMAGES ------------------------------*/
 // IN PROGRESS
 
-// var img85 = ee.Image(mining.filterMetadata("year","equals",1985).first());
+var img85 = ee.Image(mining.filterMetadata("year","equals",1985).first())
+  .select(["area","FIPS"]).cast({"area":"float","FIPS":"float"});
 
-// Export.image.toDrive({
-//   image: img85,
-//   region: studyArea.geometry(),
-//   scale: 30,
-//   maxPixels: 1e10
-// });
+Export.image.toDrive({
+  image: img85,
+  description: "imageExport_1985",
+  region: studyArea.geometry(),
+  scale: 30,
+  maxPixels: 1e10
+});
 
-Map.addLayer(mining)//.filterMetadata("year","greater_than",2010));
+
+
+Map.addLayer(mining, {bands:["MTR"], min:1972, max:2015})//.filterMetadata("year","equals",1972));
