@@ -2,9 +2,21 @@
    This script was created by SkyTruth to identify possible active mountaintop
    removal and other surface coal mining. This script requires an input 
    ImageCollection, generated with the greenestCompositesToAssets script.
+   
+   We have annual imagery for each year from 1984 - 2016. For 1972 - 1982,
+   see this chart for naming conventions for three- or two-year composites.
+   Note: 1983 is omitted due to lack of quality imagery (not enough satellite)
+   coverage during those years.
+   
+   Key  = 3-year period
+   -------------------
+   1972  =   1972-1974
+   1975  =   1975-1977
+   1978  =   1978-1980
+   1981  =   1981-1982
 
 /*------------------ IMPORT GREENEST COMPOSITE FEATURE COLLECTION ----------- */
-var greenestComposites = ee.ImageCollection("users/andrewpericak/miningComposites");
+var greenestComposites = ee.ImageCollection("users/andrewpericak/greenestComposites");
 
 /*------------------------- IMPORT STUDY AREA ------------------------------- */
 // https://www.google.com/fusiontables/DataSource?docid=1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U
@@ -72,57 +84,8 @@ var countyImg = features.reduceToImage({
   reducer: ee.Reducer.first()
 }).rename("FIPS");
 
-
-/*---------------------------- SET NDVI THRESHOLDS ---------------------------*/
-// These thresholds set per each year (and associated sensor) using Otsu method; 
-// see https://github.com/SkyTruth/MTR/blob/master/EE-scripts/OtsuThresholds.js
-// Note: For the period [1974 - 1982], the script runs on three years' worth of
-// imagery at a time; this table indicates which three-year periods:
-//     Key  = 3-year period
-//    -------------------
-//    1972  =   1972-1974
-//    1975  =   1975-1977
-//    1978  =   1978-1980
-//    1981  =   1981-1982
-// Note: 1983 is omitted due to lack of quality imagery
-
-// var thresholds = ee.Dictionary({ // Otsu average - 2 stdev
-//   1972: 0.3490,   1975: 0.4505,   1978: 0.4978,   1981: 0.4258,   1984: 0.4030,
-//   1985: 0.3843,   1986: 0.4476,   1987: 0.4307,   1988: 0.4330,   1989: 0.4104,
-//   1990: 0.4048,   1991: 0.3935,   1992: 0.3888,   1993: 0.3915,   1994: 0.3430,
-//   1995: 0.3953,   1996: 0.4126,   1997: 0.4138,   1998: 0.4153,   1999: 0.4616,
-//   2000: 0.4328,   2001: 0.4228,   2002: 0.4125,   2003: 0.3961,   2004: 0.4101,
-//   2005: 0.4225,   2006: 0.4236,   2007: 0.4490,   2008: 0.4131,   2009: 0.3784,
-//   2010: 0.4273,   2011: 0.4113,   2012: 0.3970,   2013: 0.4362,   2014: 0.4525,   
-//   2015: 0.4518
-// });
-
-// var thresholds = ee.Dictionary({ // Otsu average - 1 stdev
-//   1972: 0.4065,   1975: 0.5118,   1978: 0.5439,   1981: 0.4861,   1984: 0.4488,
-//   1985: 0.4456,   1986: 0.4870,   1987: 0.4698,   1988: 0.4771,   1989: 0.4551,
-//   1990: 0.4420,   1991: 0.4286,   1992: 0.4267,   1993: 0.4431,   1994: 0.4331,
-//   1995: 0.4657,   1996: 0.4741,   1997: 0.4686,   1998: 0.4565,   1999: 0.4885,
-//   2000: 0.4660,   2001: 0.4881,   2002: 0.4769,   2003: 0.4581,   2004: 0.4711,
-//   2005: 0.4841,   2006: 0.4865,   2007: 0.5073,   2008: 0.4783,   2009: 0.4569,
-//   2010: 0.4808,   2011: 0.4759,   2012: 0.4597,   2013: 0.4900,   2014: 0.5035,   
-//   2015: 0.5135
-// });
-
-var thresholds = ee.Dictionary({ // Otsu average
-  1972: 0.4639,   1975: 0.5731,   1978: 0.5899,   1981: 0.5465,   1984: 0.4946,
-  1985: 0.5069,   1986: 0.5263,   1987: 0.5089,   1988: 0.5212,   1989: 0.4999,
-  1990: 0.4791,   1991: 0.4638,   1992: 0.4646,   1993: 0.4946,   1994: 0.5244,
-  1995: 0.5362,   1996: 0.5357,   1997: 0.5234,   1998: 0.4975,   1999: 0.5154,
-  2000: 0.5064,   2001: 0.5533,   2002: 0.5413,   2003: 0.5201,   2004: 0.5320,
-  2005: 0.5458,   2006: 0.5493,   2007: 0.5656,   2008: 0.5435,   2009: 0.5353,
-  2010: 0.5344,   2011: 0.5404,   2012: 0.5224,   2013: 0.5434,   2014: 0.5545,   
-  2015: 0.5753
-});
-// Other note: by using the full set of Landsat data (all sensors), then we 
-// we may need to scrap Otsu altogether since using multiple sensors for one 
-// year may not give us the bimodal distribution necessary for Otsu.
-
 /*------------------------------ IMPORT MASKS --------------------------------*/
+
 var mask_input_60m_2015 = ee.Image('users/jerrilyn/2015mask-PM-fullstudy-area');
 // Roads, water bodies, urban areas, etc., buffered 60 m
 // Get the link here: https://drive.google.com/file/d/0B_MArPTqurHudFp6STU4ZzJHRmc/view
@@ -140,14 +103,6 @@ var miningPermits_noBuffer = ee.Image('users/andrewpericak/allMinePermits_noBuff
 // (labeled as 1) to 0.
 var mask_input_excludeMines = mask_input_60m_2015.where(miningPermits_noBuffer.eq(1), 0);
 
-// Choose your favorite area of interest! Comment out all but one:
-//Map.centerObject(studyArea);        // Full study extent
-//Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
-//Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
-//Map.setCenter(-83.224567, 37.355144, 11);     // Near Dice, KY
-//Map.setCenter(-83.931184, 36.533646, 12);     // Near Log Mountain, TN
-
-
 /*------------------------------ MINE ANALYSIS -------------------------------*/
 
 // Below, for each image in the ImageCollection created in the other script,
@@ -156,15 +111,25 @@ var mask_input_excludeMines = mask_input_60m_2015.where(miningPermits_noBuffer.e
 
 //// INITIAL MINE THRESHOLDING
 
+// Create a list of yearly threshold images, and a list of years associated with
+// those images, for image selection within the loop
+var threshImgList = ee.ImageCollection("users/andrewpericak/annualThresholds")
+  .sort("year").toList(100);
+var threshImgYrList = ee.List(ee.ImageCollection("users/andrewpericak/annualThresholds")
+  .aggregate_array("year")).sort();
+
 // This initially compares the NDVI at each pixel to the given threshold. The
 // resulting images are 1 = mine and 0 = non-mine.
 var rawMining = ee.ImageCollection(greenestComposites.map(function(image){
   var year = image.get("year");
   var ndvi = image.select("NDVI");
   
-  // This pulls the specific threshold for that year from the dictionary above
-  var threshold = thresholds.get(ee.Number(year).format('%d'));
-  var lowNDVI = ndvi.lte(ee.Image.constant(threshold));
+  // This pulls the specific threshold image for the given year
+  var index = ee.Number(threshImgYrList.indexOf(year));
+  var threshold = ee.Image(threshImgList.get(index));
+  
+  // This compares the NDVI per pixel to the NDVI threshold 
+  var lowNDVI = ndvi.lte(threshold);//ee.Image.constant(threshold));
   return lowNDVI.set({"year": year});
 }));
 
@@ -181,11 +146,11 @@ var nullCleaning1 = ee.ImageCollection(rawMining.map(function(image){
 }));
 
 // Create dummy images so the null cleaning will work; essentially for 1983 and
-// 2016 (the years immediately before and after the years for which we have
+// 2017 (the years immediately before and after the years for which we have
 // Landsat scenes), we need images of value 0 so that the nullCleaning2 function
 // below actually works. Likewise for any of the MSS years, since we're doing
 // those in many years at a time. This means we can't clean any null values from 
-// 1984 or 2015 imagery, nor for 1972 - 1982.
+// 1984 or 2016 imagery, nor for 1972 - 1982.
 var dummy1971 = ee.Image(0).rename("NDVI").set({"year": 1971});
 var dummy1973 = ee.Image(0).rename("NDVI").set({"year": 1973});
 var dummy1974 = ee.Image(0).rename("NDVI").set({"year": 1974});
@@ -195,11 +160,11 @@ var dummy1979 = ee.Image(0).rename("NDVI").set({"year": 1979});
 var dummy1980 = ee.Image(0).rename("NDVI").set({"year": 1980});
 var dummy1982 = ee.Image(0).rename("NDVI").set({"year": 1982});
 var dummy1983 = ee.Image(0).rename("NDVI").set({"year": 1983});
-var dummy2016 = ee.Image(0).rename("NDVI").set({"year": 2016});
+var dummy2017 = ee.Image(0).rename("NDVI").set({"year": 2017});
 
 var rawMining2 = ee.ImageCollection(rawMining.merge(ee.ImageCollection(
   [dummy1971,dummy1973,dummy1974,dummy1976,dummy1977,dummy1979,dummy1980,
-   dummy1982,dummy1983,dummy2016])));
+   dummy1982,dummy1983,dummy2017])));
    
 // Create two lists in order to help choose the immediate prior and future
 // images for a given year. The first is a list of each image in the rawMining2
@@ -268,11 +233,11 @@ var dummy1979a = ee.Image(1).rename("NDVI").set({"year": 1979});
 var dummy1980a = ee.Image(1).rename("NDVI").set({"year": 1980});
 var dummy1982a = ee.Image(1).rename("NDVI").set({"year": 1982});
 var dummy1983a = ee.Image(1).rename("NDVI").set({"year": 1983});
-var dummy2016a = ee.Image(1).rename("NDVI").set({"year": 2016});
+var dummy2017a = ee.Image(1).rename("NDVI").set({"year": 2017});
 
 var rawMining3 = ee.ImageCollection(nullCleaning3.merge(ee.ImageCollection(
   [dummy1971a,dummy1973a,dummy1974a,dummy1976a,dummy1977a,dummy1979a,dummy1980a,
-   dummy1982a,dummy1983a,dummy2016a])));
+   dummy1982a,dummy1983a,dummy2017a])));
 var rm3List = rawMining3.sort("year").toList(100); // See explanation above
 var rm3YrList = ee.List(rawMining3.aggregate_array("year")).sort();
 
@@ -309,10 +274,11 @@ var mining = ee.ImageCollection(noiseCleaning.map(function(image){
   var mtr = image.and(mask_input_excludeMines.eq(0));
   
   // Erode/dilate MTR sites to remove outliers (pixel clean-up)
-  var mtrCleaned = mtr
-    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters'))  // erode
-    .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(60, 'meters'))  // dilate
-    .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters')); // erode
+  // var mtrCleaned = mtr
+  //   .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters'))  // erode
+  //   .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(60, 'meters'))  // dilate
+  //   .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters')); // erode
+  var mtrCleaned = mtr;
 
   // Mask MTR by the erosion/dilation, and by mining permit locations buffered 
   // out 1 km
@@ -391,4 +357,14 @@ Export.image.toDrive({
 
 
 
-Map.addLayer(mining, {bands:["MTR"], min:1972, max:2015})//.filterMetadata("year","equals",1972));
+
+
+
+Map.addLayer(greenestComposites.filterMetadata("year","equals",2012),
+  {bands:["NDVI"], min:0, max:0.8})
+  
+// Map.addLayer(mining
+//   .filterMetadata("year","equals",2012), 
+//   {bands:["MTR"], min:2012, max:2012});
+
+//Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016});
