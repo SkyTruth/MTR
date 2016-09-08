@@ -210,7 +210,7 @@ var description = "composite_"+year; // Be careful here with multi-year MSS
 Export.image.toAsset({
   image: composite,
   description: description,
-  assetId: ("users/andrewpericak/miningComposites_18Aug16/"+description),
+  assetId: ("users/andrewpericak/greenestPixelComposites/"+description),
   region: exportbounds,
   scale: 30, // Change to 60 for MSS
   maxPixels: 1e10
