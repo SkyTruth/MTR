@@ -20,7 +20,7 @@
 
 
 /*------------------ IMPORT GREENEST COMPOSITE FEATURE COLLECTION ----------- */
-var greenestComposites = ee.ImageCollection("users/andrewpericak/miningComposites");
+var greenestComposites = ee.ImageCollection("users/andrewpericak/greenestComposites");
 
 /*------------------------- IMPORT STUDY AREA ------------------------------- */
 // https://www.google.com/fusiontables/DataSource?docid=1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U
