@@ -152,6 +152,8 @@ var lt5Collection = lt5
 var le7Collection = le7
   .filterBounds(studyArea)
   .filterDate('1999-01-01', Date.now())
+  .filter(ee.Filter.date("2012-08-03","2012-08-04").not())
+    // The above line removes a specific image that had too many errors
   .map(cleaner(250))
   .map(maskClouds)
   .map(function(image) {
@@ -187,7 +189,7 @@ var lsCollection = ee.ImageCollection((lm1Collection)
 // want to avoid for loops, there isn't a way to run through each year 
 // automatically, so we have to manually change this number each time.
 // Although maybe the new UI API could help with this...
-var year = 1984; 
+var year = 2012; 
 
 // Make the annual composite for the year noted above
 var composite = lsCollection
@@ -213,6 +215,7 @@ Export.image.toAsset({
   scale: 30, // Change to 60 for MSS
   maxPixels: 1e10
 });
+
 
 // NOTE: there isn't a way to automatically turn all these Images into an
 // ImageCollection, so you have to manually create that ImageCollection via the
