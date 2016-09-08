@@ -2,9 +2,9 @@
 
 **What scripts are in this folder? Describe here.**
 
-`OtsuThresholds.js`: Script to derive yearly NDVI threshold, based on Otsu method
-
 `annualMiningArea.js`: Part 2 of the analysis script, which generates mining area per year
+
+`annualThresholdImages.js`: Script to generate annual, county-scale threshold images and save as Assets
 
 `countInputImagesPerYear.js`: Script to determine how much raw Landsat imagery there is across study area
 
