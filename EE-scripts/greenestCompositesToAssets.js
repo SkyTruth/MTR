@@ -8,11 +8,13 @@
    to create the composite (see below).
 
 /*------------------------------ IMPORT STUDY AREA -------------------------- */
+
 // https://www.google.com/fusiontables/DataSource?docid=1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U
 var studyArea = ee.FeatureCollection('ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h7U');
 var exportbounds = studyArea.geometry().bounds();
 
 /* ----------------------------- IMPORT IMAGERY ------------------------------*/
+
 // These are all raw, orthorectified datasets, for each Landsat sensor
 
 var lm1 = ee.ImageCollection("LANDSAT/LM1_L1T"),
@@ -22,16 +24,6 @@ var lm1 = ee.ImageCollection("LANDSAT/LM1_L1T"),
     lt5 = ee.ImageCollection("LANDSAT/LT5_L1T"),
     le7 = ee.ImageCollection("LANDSAT/LE7_L1T"),
     lc8 = ee.ImageCollection("LANDSAT/LC8_L1T");
-
-/*------------------------- MAP VISUALIZATION --------------------------------*/
-
-// Choose your favorite area of interest! Comment out all but one:
-//Map.centerObject(studyArea);        // Full study extent
-//Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
-//Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
-//Map.setCenter(-83.224567, 37.355144, 11);     // Near Dice, KY
-//Map.setCenter(-83.931184, 36.533646, 12);     // Near Log Mountain, TN
-
 
 /*----------------------------- IMAGE PROCESSING -----------------------------*/
 
@@ -50,7 +42,6 @@ var cleaner = function(outlierValue) {
       return ee.Algorithms.Landsat.TOA(image).updateMask(new_mask);
   };
 };
-
 
 // Function for Landsat 1 & 2 & 3, cleans imagery of errors 
 // and attempts to remove clouds.
