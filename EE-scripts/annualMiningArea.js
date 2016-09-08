@@ -85,6 +85,7 @@ var countyImg = features.reduceToImage({
 }).rename("FIPS");
 
 /*------------------------------ IMPORT MASKS --------------------------------*/
+
 var mask_input_60m_2015 = ee.Image('users/jerrilyn/2015mask-PM-fullstudy-area');
 // Roads, water bodies, urban areas, etc., buffered 60 m
 // Get the link here: https://drive.google.com/file/d/0B_MArPTqurHudFp6STU4ZzJHRmc/view
@@ -101,14 +102,6 @@ var miningPermits_noBuffer = ee.Image('users/andrewpericak/allMinePermits_noBuff
 // keep and 1 means eventually mask), this line sets the mine permit areas
 // (labeled as 1) to 0.
 var mask_input_excludeMines = mask_input_60m_2015.where(miningPermits_noBuffer.eq(1), 0);
-
-// Choose your favorite area of interest! Comment out all but one:
-//Map.centerObject(studyArea);        // Full study extent
-//Map.setCenter(-81.971744, 38.094253, 12);     // Near Spurlockville, WV
-//Map.setCenter(-82.705444, 37.020257, 12);     // Near Addington, VA
-//Map.setCenter(-83.224567, 37.355144, 11);     // Near Dice, KY
-//Map.setCenter(-83.931184, 36.533646, 12);     // Near Log Mountain, TN
-
 
 /*------------------------------ MINE ANALYSIS -------------------------------*/
 
@@ -135,7 +128,6 @@ var rawMining = ee.ImageCollection(greenestComposites.map(function(image){
   var index = ee.Number(threshImgYrList.indexOf(year));
   var threshold = ee.Image(threshImgList.get(index));
   
-  //var threshold = thresholds.get(ee.Number(year).format('%d'));
   // This compares the NDVI per pixel to the NDVI threshold 
   var lowNDVI = ndvi.lte(threshold);//ee.Image.constant(threshold));
   return lowNDVI.set({"year": year});
