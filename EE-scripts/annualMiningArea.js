@@ -216,7 +216,7 @@ var nullCleaning3 = ee.ImageCollection(rawMining.map(function(image){
   return updatedRaw.set({"year": year});
 }));
 
-//// NOISE CLEANING
+//// NOISE CLEANING 1
 
 // Now we have noise cleaning, to eliminate pixels that go from unmined->mine->
 // unmined, since the mine pixel is likely incorrect
@@ -241,7 +241,7 @@ var rawMining3 = ee.ImageCollection(nullCleaning3.merge(ee.ImageCollection(
 var rm3List = rawMining3.sort("year").toList(100); // See explanation above
 var rm3YrList = ee.List(rawMining3.aggregate_array("year")).sort();
 
-var noiseCleaning = ee.ImageCollection(nullCleaning3.map(function(image){
+var noiseCleaning1 = ee.ImageCollection(nullCleaning3.map(function(image){
   var year = ee.Number(image.get("year"));
 
   var rm3Index = ee.Number(rm3YrList.indexOf(year));
@@ -262,11 +262,44 @@ var noiseCleaning = ee.ImageCollection(nullCleaning3.map(function(image){
   return image.where(potentialNoise.eq(1),0).set({"year":year});
 }));
 
+//// NOISE CLEANING 2
+
+// And more noise cleaning, now to eliminate pixels that go from mined->unmined->
+// mined, since the unmined pixel is likely incorrect
+
+// We need the 0-value dummy images from above
+var rawMining4 = ee.ImageCollection(noiseCleaning1.merge(ee.ImageCollection(
+  [dummy1971,dummy1973,dummy1974,dummy1976,dummy1977,dummy1979,dummy1980,
+   dummy1982,dummy1983,dummy2017])));
+var rm4List = rawMining4.sort("year").toList(100); // See explanation above
+var rm4YrList = ee.List(rawMining4.aggregate_array("year")).sort();
+
+var noiseCleaning2 = ee.ImageCollection(noiseCleaning1.map(function(image){
+  var year = ee.Number(image.get("year"));
+
+  var rm4Index = ee.Number(rm4YrList.indexOf(year));
+  var priorIndex = rm4Index.subtract(1);
+  var futureIndex = rm4Index.add(1);
+  var imgPrevious = ee.Image(rm4List.get(priorIndex));
+  var imgNext = ee.Image(rm4List.get(futureIndex));
+  
+  // Relabel images so that pixels that are mine in current year but not mine
+  // in previous/next years are labeled 111 when summed
+  var relabelPrevious = imgPrevious.remap([0,1],[-10,900]);
+  var relabelNext = imgNext.remap([0,1],[-10,90]);
+  
+  var summation = image.add(relabelPrevious).add(relabelNext);
+  var potentialNoise = summation.eq(990);
+      // Mine in current year = 1; non-mine in past year = 100; non-mine in 
+      // future year = 10; therefore we want sum of 111
+  return image.where(potentialNoise.eq(1),1).set({"year":year});
+}));
+
 //// FINAL CLEANING AND OUTPUT
 
 // This final function performs other cleaning (mask, erosion/dilation, mine 
 // permit boundaries) to further clean up the mining dataset.
-var mining = ee.ImageCollection(noiseCleaning.map(function(image){
+var mining = ee.ImageCollection(noiseCleaning2.map(function(image){
   
   var year = ee.Number(image.get("year"));
   // Create binary image containing the intersection between the LowNDVI and 
@@ -411,12 +444,11 @@ Export.table.toDrive({
 
 
 
-// Map.addLayer(greenestComposites.filterMetadata("year","equals",2012),
+// Map.addLayer(greenestComposites.filterMetadata("year","equals",1989),
 //   {bands:["NDVI"], min:0, max:0.8})
   
 // Map.addLayer(mining
 //   .filterMetadata("year","equals",2012), 
-//   {bands:["MTR"], min:2012, max:2012});
+// {bands:["MTR"], min:2012, max:2012});
 
-//Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016});
-
+// Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016});
