@@ -295,9 +295,8 @@ var mining = ee.ImageCollection(noiseCleaning.map(function(image){
 /*------------ SUMMARIZE MINING AREA PER FEATURE PER YEAR --------------------*/
 
 // This creates a table listing the area of active mining per year, per 
-// subregion noted above (to allow this to actually export)
+// subregion noted above (either county or rectangle)
 var getFeatures = function(feature) {
-  // collection is a collection of removal by year
   var fips = feature.get("FIPS");
   return mining.map(function(image) {
     var yearlyArea = image.select('area').reduceRegion({
@@ -341,7 +340,7 @@ Export.table.toDrive({
   fileFormat: "kml"
 });
 
-/*---------------------------- EXPORT TO IMAGES ------------------------------*/
+/*------------------ EXPORT TO IMAGES & ASSOCIATED TABLES --------------------*/
 // IN PROGRESS
 
 var img85 = ee.Image(mining.filterMetadata("year","equals",1985).first())
@@ -355,16 +354,69 @@ Export.image.toDrive({
   maxPixels: 1e10
 });
 
+//// TOTAL CUMULATIVE AREA (i.e., anything that has ever been mined)
+var cumulativeArea = mining.reduce(ee.Reducer.anyNonZero());
+Export.image.toDrive({
+  image: cumulativeArea,
+  description: "totalCumulativeMineArea",
+  region: studyArea.geometry(),
+  scale: 30,
+  maxPixels: 1e10
+});
+
+//// ANNUALLY CUMULATIVE AREA (i.e., from baseline of 1972, how much "new"
+//// area has been mined per year)
+
+// This uses iterate() to add immediately prior year to current year, so
+// that each time step has slightly more mining area (i.e., whatever was
+// new as of that year)
+var first = ee.List([
+  ee.Image(0).set("year", 1).select([0],["MTR"]).addBands(
+    ee.Image(mining.filterMetadata("year","equals",1972).first()),null,true)
+    .unmask().cast({"MTR": "long"})]);
+var iterator = function(image, list){
+  var previous = ee.Image(ee.List(list).get(-1));
+  var added = image.unmask().add(previous)
+    .set("year", image.get("year"));
+  return ee.List(list).add(added);
+};
+var annualCumulativeArea = ee.ImageCollection(ee.List(
+  mining.iterate(iterator, first)));
+
+// This outputs a table of annual, cumulative mining area by assigning that
+// area (which applies to entire study extent), to a fake geometry, and then
+// exporting that geometry as a FeatureCollection, which can be written to
+// a table. It's sortof roundabout, but necessary to get one value per year.
+var reduceACA = annualCumulativeArea.select("MTR")
+  .map(function(image){
+    var dict = ee.Dictionary({});
+    var year = image.get("year");
+    var pixArea = image.reduce(ee.Reducer.anyNonZero())
+      .multiply(ee.Image.pixelArea()).set({"year": year});
+    var yearlyArea = pixArea.reduceRegion({
+      reducer: ee.Reducer.sum(),
+      geometry: studyArea.geometry(),
+      scale: 30,
+      maxPixels: 1e10
+    });
+    dict = ee.Dictionary(dict.set("yearlyArea",yearlyArea)).set("year",year);
+    return ee.Feature(ee.Geometry.Point(0,0),dict);
+});
+
+Export.table.toDrive({
+  collection: reduceACA,
+  description: "annualCumulativeMiningArea",
+  fileFormat: "csv"
+});
 
 
 
-
-
-Map.addLayer(greenestComposites.filterMetadata("year","equals",2012),
-  {bands:["NDVI"], min:0, max:0.8})
+// Map.addLayer(greenestComposites.filterMetadata("year","equals",2012),
+//   {bands:["NDVI"], min:0, max:0.8})
   
 // Map.addLayer(mining
 //   .filterMetadata("year","equals",2012), 
 //   {bands:["MTR"], min:2012, max:2012});
 
 //Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016});
+
