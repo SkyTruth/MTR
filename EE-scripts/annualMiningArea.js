@@ -387,8 +387,21 @@ Export.image.toDrive({
   maxPixels: 1e10
 });
 
+
 //// TOTAL CUMULATIVE AREA (i.e., anything that has ever been mined)
 var cumulativeArea = mining.reduce(ee.Reducer.anyNonZero());
+
+// This will give the number in square meters (print the output)
+var TCA_pixelArea = cumulativeArea.select("MTR_any")
+  .multiply(ee.Image.pixelArea());
+var TCA_reducer = TCA_pixelArea.reduceRegion({
+  reducer: ee.Reducer.sum(),
+  geometry: features.geometry(),
+  scale: 30,
+  maxPixels:1e10
+});
+
+// This will export the image of all mine area
 Export.image.toDrive({
   image: cumulativeArea,
   description: "totalCumulativeMineArea",
@@ -396,6 +409,7 @@ Export.image.toDrive({
   scale: 30,
   maxPixels: 1e10
 });
+
 
 //// ANNUALLY CUMULATIVE AREA (i.e., from baseline of 1972, how much "new"
 //// area has been mined per year)
