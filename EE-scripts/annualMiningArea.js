@@ -26,42 +26,42 @@ var studyArea = ee.FeatureCollection('ft:1Lphn5PR9YbneoY4sPkKGMUOJcurihIcCx0J82h
 
 //// FOUR RECTANGULAR REGIONS
 
-// var geometryI = /* color: d63000 */ee.Feature(
-//         ee.Geometry.Polygon(
-//             [[[-79.612, 39.037],
-//               [-79.612, 37.3525],
-//               [-82.421, 37.3525],
-//               [-82.421, 39.037]]]),
-//         {
-//           "system:index": "0"
-//         }),
-//     geometryII = /* color: 98ff00 */ee.Feature(
-//         ee.Geometry.Polygon(
-//             [[[-82.421, 38.942],
-//               [-82.421, 37.3525],
-//               [-84.993, 37.3525],
-//               [-84.993, 38.942]]]),
-//         {
-//           "system:index": "0"
-//         }),
-//     geometryIII = /* color: 0B4A8B */ee.Feature(
-//         ee.Geometry.Polygon(
-//             [[[-82.421, 37.3525],
-//               [-82.421, 35.637],
-//               [-85.811, 35.637],
-//               [-85.811, 37.3525]]]),
-//         {
-//           "system:index": "0"
-//         }),
-//     geometryIV = /* color: ffc82d */ee.Feature(
-//         ee.Geometry.Polygon(
-//             [[[-79.849, 37.3525],
-//               [-79.849, 35.763],
-//               [-82.421, 35.763],
-//               [-82.421, 37.3525]]]),
-//         {
-//           "system:index": "0"
-//         });
+var geometryI = /* color: d63000 */ee.Feature(
+        ee.Geometry.Polygon(
+            [[[-79.612, 39.037],
+              [-79.612, 37.3525],
+              [-82.421, 37.3525],
+              [-82.421, 39.037]]]),
+        {
+          "system:index": "0"
+        }),
+    geometryII = /* color: 98ff00 */ee.Feature(
+        ee.Geometry.Polygon(
+            [[[-82.421, 38.942],
+              [-82.421, 37.3525],
+              [-84.993, 37.3525],
+              [-84.993, 38.942]]]),
+        {
+          "system:index": "0"
+        }),
+    geometryIII = /* color: 0B4A8B */ee.Feature(
+        ee.Geometry.Polygon(
+            [[[-82.421, 37.3525],
+              [-82.421, 35.637],
+              [-85.811, 35.637],
+              [-85.811, 37.3525]]]),
+        {
+          "system:index": "0"
+        }),
+    geometryIV = /* color: ffc82d */ee.Feature(
+        ee.Geometry.Polygon(
+            [[[-79.849, 37.3525],
+              [-79.849, 35.763],
+              [-82.421, 35.763],
+              [-82.421, 37.3525]]]),
+        {
+          "system:index": "0"
+        });
 // var features = ee.FeatureCollection([geometryI, geometryII, geometryIII, geometryIV]);
 
 //// BY COUNTY
@@ -318,12 +318,64 @@ var mining = ee.ImageCollection(noiseCleaning2.map(function(image){
   var mtrMasked = mtrCleaned.updateMask(mtrCleaned.and(miningPermits))
       .multiply(year).rename('MTR').toInt();
   
-  // Compute area per pixel
-  var area = ee.Image.pixelArea().multiply(mtrMasked).divide(year).rename('area').toFloat();
+  // Remove small, noisy pixel areas (remember, this is dependent on zoom level)
+  var smallAreaMask = mtrMasked.connectedPixelCount().gte(20);
+  var noSmall = mtrMasked.updateMask(smallAreaMask);
   
-  return image.addBands(mtrMasked).addBands(area).addBands(countyImg)
+  // Compute area per pixel
+  var area = ee.Image.pixelArea().multiply(noSmall)
+    .divide(year).rename('area').toFloat();
+  
+  return image.addBands(noSmall).addBands(area).addBands(countyImg)
     .select(["MTR","area","FIPS"]);
 }));
+
+/*----------------------- ACCURACY ASSESSMENT --------------------------------*/
+
+// This will add properties to each yearly image, reporting overall accuracy
+// (accuracy), kappa coefficient (kappa), user's error (user), and producer's
+// error (producer)
+var accuracy = mining.select("MTR").map(function(image){
+  var year = image.get('year');
+  image = image.gt(0).unmask();
+  // The next line is a Fusion Table containing all manually-classified points
+  // as one table. This table must contain a binary column called CLASS where
+  // value 0 = non-mine and value 1 = mine.
+  var points = ee.FeatureCollection("ft:1wprqoHBQyZqaKUezaxyDOpZq888abogr4ozrcUmc")
+    .filterMetadata("YEAR","equals",year);
+  var output = image.sampleRegions(points, ['CLASS'], 30);
+  var error_matrix = output.errorMatrix('CLASS', 'MTR');
+  return image.set({"accuracy": error_matrix.accuracy(), 
+    "kappa": error_matrix.kappa(),
+    "user": error_matrix.consumersAccuracy().toList().flatten(), 
+    "producer": error_matrix.producersAccuracy().toList().flatten(), 
+    "year": year});
+});
+
+// This turns the accuracy assessement values into blank geometries, so that
+// they can be exported into tables.
+var accuracyCollection = ee.FeatureCollection(accuracy.map(function(image){
+    var dict = ee.Dictionary({});
+    var year = image.get("year");
+    var accuracy = image.get("accuracy");
+    var kappa = image.get("kappa");
+    var user = image.get("user");
+    var producer = image.get("producer");
+    
+    dict = ee.Dictionary(ee.Dictionary(ee.Dictionary(ee.Dictionary(dict
+      .set("accuracy",accuracy))
+      .set("kappa",kappa))
+      .set("user",user))
+      .set("producer",producer))
+      .set("year",year);
+    return ee.Feature(ee.Geometry.Point(0,0),dict);
+}));
+
+Export.table.toDrive({
+  collection: accuracyCollection,
+  description: "accuracyAssessmentResults",
+  fileFormat: "csv"
+});
 
 /*------------ SUMMARIZE MINING AREA PER FEATURE PER YEAR --------------------*/
 
@@ -373,15 +425,18 @@ Export.table.toDrive({
   fileFormat: "kml"
 });
 
-/*------------------ EXPORT TO IMAGES & ASSOCIATED TABLES --------------------*/
-// IN PROGRESS
+/*------------- EXPORT TO IMAGES, VIDEOS, & ASSOCIATED TABLES ----------------*/
 
-var img85 = ee.Image(mining.filterMetadata("year","equals",1985).first())
+//// EXPORT SPECIFIC YEAR'S IMAGERY
+// Set the year on the following line
+var exportYr = 1985;
+
+var yearExport = ee.Image(mining.filterMetadata("year","equals",exportYr).first())
   .select(["area","FIPS"]).cast({"area":"float","FIPS":"float"});
 
 Export.image.toDrive({
-  image: img85,
-  description: "imageExport_1985",
+  image: yearExport,
+  description: "mining_"+exportYr,
   region: studyArea.geometry(),
   scale: 30,
   maxPixels: 1e10
@@ -422,13 +477,22 @@ var first = ee.List([
     ee.Image(mining.filterMetadata("year","equals",1972).first()),null,true)
     .unmask().cast({"MTR": "long"})]);
 var iterator = function(image, list){
+  var year = ee.Number(image.get("year"));
   var previous = ee.Image(ee.List(list).get(-1));
-  var added = image.unmask().add(previous)
+  var added = image.select("MTR")
+    //.clip(features.geometry()) // Uncomment this line to run on a subset of features
+    .unmask().add(previous);
+  var setyear = added.where(added.gt(2016),year)
     .set("year", image.get("year"));
-  return ee.List(list).add(added);
+  return ee.List(list).add(setyear);
 };
 var annualCumulativeArea = ee.ImageCollection(ee.List(
-  mining.iterate(iterator, first)));
+  mining.iterate(iterator, first)))
+  .limit({
+    max: 37,
+    property: "year",
+    ascending: false
+  }).sort("year");
 
 // This outputs a table of annual, cumulative mining area by assigning that
 // area (which applies to entire study extent), to a fake geometry, and then
@@ -457,12 +521,82 @@ Export.table.toDrive({
 });
 
 
+//// VIDEO EXPORT
 
-// Map.addLayer(greenestComposites.filterMetadata("year","equals",1989),
-//   {bands:["NDVI"], min:0, max:0.8})
-  
+// This exports yearly mining extent video for specified region
+var forceRGB = annualCumulativeArea.select("MTR").map(function(image){
+  var year = ee.Number(image.get("year"));
+  return image.visualize({
+    bands: ["MTR"],
+    min: 1972,
+    max: 2016,
+    palette: ["000000", "ffffcc","ffeda0","fed976","feb24c","fd8d3c","fc4e2a",
+              "e31a3c","bd0026","800026"],
+    forceRgbOutput: true
+  }).set({"year":year});
+});
+
+Export.video.toDrive({
+  collection: forceRGB,
+  description: "annualMiningVideo",
+  region: geometryI.bounds(),
+  scale: 30,
+  crs: "EPSG:5072",
+  maxPixels: 1e10
+});
+
+// This exports RGB imagery video for same, hand-drawn extent
+var visibleImgs = greenestComposites.select(["R","G","B"]).map(function(image){
+  return image.visualize({
+    bands: ["R","G","B"],
+    min: [0.03, 0.05, 0.08],
+    max: [0.19, 0.18, 0.18],
+    gamma: 1.4
+  });
+});
+
+Export.video.toDrive({
+  collection: visibleImgs,
+  description: "annualVisibleVideo",
+  region: geometryI.bounds(),
+  scale: 30,
+  crs: "EPSG:5072",
+  maxPixels: 1e10
+});
+
+// This exports NDVI video for same, hand-drawn extent
+var visibleImgs = greenestComposites.select(["NDVI"]).map(function(image){
+  return image.visualize({
+    bands: ["NDVI"],
+    min: [0],
+    max: [0.8],
+    forceRgbOutput: true
+  });
+});
+
+Export.video.toDrive({
+  collection: visibleImgs,
+  description: "annualNdviVideo",
+  region: geometryI.bounds(),
+  scale: 30,
+  crs: "EPSG:5072",
+  maxPixels: 1e10
+});
+
+
+//////// Temporary for viz / checking
+
+// Map.addLayer(greenestComposites.filterMetadata("year","equals",1975),
+//   {bands:["NDVI"], min:0, max:0.8});
+
+// All Campagna mines up through 2005
+// Map.addLayer(ee.FeatureCollection("ft:1Vhju89KfrsOPnwEH2y8hvXX3iJ-Pzdgvr60D3H7T"));
+
 // Map.addLayer(mining
-//   .filterMetadata("year","equals",2012), 
-// {bands:["MTR"], min:2012, max:2012});
-
-// Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016});
+//   .filterMetadata("year","equals",1972),
+//   {bands:["MTR"], min:1972, max:1972});
+Map.addLayer(ee.Image(0));
+Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016,
+  palette:["ffffcc","ffeda0","fed976","feb24c","fd8d3c","fc4e2a",
+              "e31a3c","bd0026","800026"],
+});
