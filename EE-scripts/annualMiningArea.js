@@ -600,4 +600,4 @@ Map.addLayer(ee.Image(0),{},"black");
 Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016,
   palette:["ffffcc","ffeda0","fed976","feb24c","fd8d3c","fc4e2a",
               "e31a3c","bd0026","800026"],
-}), "symbolized mining";
+}, "symbolized mining");
