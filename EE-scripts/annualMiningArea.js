@@ -189,8 +189,8 @@ var nullCleaning2 = ee.ImageCollection(nullCleaning1.map(function(image){
       // The previous year index
   var futureIndex = rm2Index.add(1);
       // The future year index
-  var imgPrevious = ee.Image(rm2List.get(priorIndex));
-  var imgNext = ee.Image(rm2List.get(futureIndex));
+  var imgPrevious = ee.Image(rm2List.get(priorIndex)).unmask();
+  var imgNext = ee.Image(rm2List.get(futureIndex)).unmask();
       // Since the indices are the same for rm2List and rm2YrList, essentially
       // use the index of the year to select the corresponding image, which has
       // the same index.
@@ -586,17 +586,18 @@ Export.video.toDrive({
 
 //////// Temporary for viz / checking
 
-// Map.addLayer(greenestComposites.filterMetadata("year","equals",1975),
-//   {bands:["NDVI"], min:0, max:0.8});
+// Map.addLayer(greenestComposites.filterMetadata("year","equals",1988),
+//   {bands:["NDVI"], min:0, max:0.8}, "specific year greenest");
 
 // All Campagna mines up through 2005
 // Map.addLayer(ee.FeatureCollection("ft:1Vhju89KfrsOPnwEH2y8hvXX3iJ-Pzdgvr60D3H7T"));
 
 // Map.addLayer(mining
-//   .filterMetadata("year","equals",1972),
-//   {bands:["MTR"], min:1972, max:1972});
-Map.addLayer(ee.Image(0));
+//   .filterMetadata("year","equals",1988),
+//   {bands:["MTR"], min:1988, max:1988}, "specific year mining");
+
+Map.addLayer(ee.Image(0),{},"black");
 Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016,
   palette:["ffffcc","ffeda0","fed976","feb24c","fd8d3c","fc4e2a",
               "e31a3c","bd0026","800026"],
-});
+}), "symbolized mining";
