@@ -101,7 +101,8 @@ var miningPermits_noBuffer = ee.Image('users/andrewpericak/allMinePermits_noBuff
 // the mine permit boundaries. Since the 60 m mask is "inversed" (i.e., 0 means
 // keep and 1 means eventually mask), this line sets the mine permit areas
 // (labeled as 1) to 0.
-var mask_input_excludeMines = mask_input_60m_2015.where(miningPermits_noBuffer.eq(1), 0);
+var mask_input_excludeMines = mask_input_60m_2015
+  .where(miningPermits_noBuffer.eq(1), 0);
 
 /*------------------------------ MINE ANALYSIS -------------------------------*/
 
@@ -129,7 +130,7 @@ var rawMining = ee.ImageCollection(greenestComposites.map(function(image){
   var threshold = ee.Image(threshImgList.get(index));
   
   // This compares the NDVI per pixel to the NDVI threshold 
-  var lowNDVI = ndvi.lte(threshold);//ee.Image.constant(threshold));
+  var lowNDVI = ndvi.lte(threshold);
   return lowNDVI.set({"year": year});
 }));
 
@@ -306,20 +307,13 @@ var mining = ee.ImageCollection(noiseCleaning2.map(function(image){
   // anywhere the inverted mask is 0
   var mtr = image.and(mask_input_excludeMines.eq(0));
   
-  // Erode/dilate MTR sites to remove outliers (pixel clean-up)
-  // var mtrCleaned = mtr
-  //   .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters'))  // erode
-  //   .reduceNeighborhood(ee.Reducer.max(), ee.Kernel.euclidean(60, 'meters'))  // dilate
-  //   .reduceNeighborhood(ee.Reducer.min(), ee.Kernel.euclidean(30, 'meters')); // erode
-  var mtrCleaned = mtr;
-
   // Mask MTR by the erosion/dilation, and by mining permit locations buffered 
   // out 1 km
-  var mtrMasked = mtrCleaned.updateMask(mtrCleaned.and(miningPermits))
+  var mtrMasked = mtr.updateMask(mtr.and(miningPermits))
       .multiply(year).rename('MTR').toInt();
   
   // Remove small, noisy pixel areas (remember, this is dependent on zoom level)
-  var smallAreaMask = mtrMasked.connectedPixelCount().gte(20);
+  var smallAreaMask = mtrMasked.connectedPixelCount().gte(25);
   var noSmall = mtrMasked.updateMask(smallAreaMask);
   
   // Compute area per pixel
@@ -403,25 +397,27 @@ Export.table.toDrive({
 });
 
 /*--------------------------- EXPORT TO VECTORS ------------------------------*/
-// IN PROGRESS
 
-var testCounty = 21013;
-var testYr = 1985;
-var testGeo = features.filterMetadata("FIPS","equals",testCounty).geometry();
-var testImg = ee.Image(mining.filterMetadata("year","equals",testYr).first())
+//// This will export the mining areas for a given year as polygons, where each
+//// polygon will be labeled with its EE-calcuated area and the year
+
+// Set the year of export here
+var vectorYr = 1985;
+var vectorImg = ee.Image(mining
+  .filterMetadata("year","equals",vectorYr).first())
   .select("MTR","area"); // Can't export FIPS if we want summed area...
 
-var vectors = testImg.reduceToVectors({
+var vectors = vectorImg.reduceToVectors({
   reducer: ee.Reducer.sum(),  // Each polygon will have sum of its area
-  geometry: testGeo,
+  geometry: features.geometry(),
   scale: 30,
   labelProperty: "year",
   maxPixels: 1e10,
-});
+}).set({"year":vectorYr});
 
 Export.table.toDrive({
   collection: vectors,
-  description: "vectors_1985_21013",
+  description: "vectors_"+vectorYr,
   fileFormat: "kml"
 });
 
@@ -586,18 +582,20 @@ Export.video.toDrive({
 
 //////// Temporary for viz / checking
 
-// Map.addLayer(greenestComposites.filterMetadata("year","equals",1988),
+// Map.addLayer(greenestComposites.filterMetadata("year","equals",1989),
 //   {bands:["NDVI"], min:0, max:0.8}, "specific year greenest");
 
 // All Campagna mines up through 2005
 // Map.addLayer(ee.FeatureCollection("ft:1Vhju89KfrsOPnwEH2y8hvXX3iJ-Pzdgvr60D3H7T"));
 
 // Map.addLayer(mining
-//   .filterMetadata("year","equals",1988),
-//   {bands:["MTR"], min:1988, max:1988}, "specific year mining");
+//   .filterMetadata("year","equals",1989),
+//   {bands:["MTR"], min:1989, max:1989}, "specific year mining");
 
 Map.addLayer(ee.Image(0),{},"black");
 Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016,
   palette:["ffffcc","ffeda0","fed976","feb24c","fd8d3c","fc4e2a",
               "e31a3c","bd0026","800026"],
 }, "symbolized mining");
+
+print(accuracy)
