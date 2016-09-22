@@ -335,7 +335,7 @@ var accuracy = mining.select("MTR").map(function(image){
   // The next line is a Fusion Table containing all manually-classified points
   // as one table. This table must contain a binary column called CLASS where
   // value 0 = non-mine and value 1 = mine.
-  var points = ee.FeatureCollection("ft:1wprqoHBQyZqaKUezaxyDOpZq888abogr4ozrcUmc")
+  var points = ee.FeatureCollection("ft:16o3Xphy1drmHoTQEOcNBZv7OdiFwnK0jbsfaZRrf")
     .filterMetadata("YEAR","equals",year);
   var output = image.sampleRegions(points, ['CLASS'], 30);
   var error_matrix = output.errorMatrix('CLASS', 'MTR');
@@ -582,20 +582,28 @@ Export.video.toDrive({
 
 //////// Temporary for viz / checking
 
-// Map.addLayer(greenestComposites.filterMetadata("year","equals",1989),
-//   {bands:["NDVI"], min:0, max:0.8}, "specific year greenest");
+var vizyear = 2003;
+
+// Greenest pixel composites for specified year
+Map.addLayer(greenestComposites.filterMetadata("year","equals",vizyear),
+  {bands:["NDVI"], min:0, max:0.8}, vizyear+" greenest");
+
+// Black background image (good contrast)
+Map.addLayer(ee.Image(0),{},"black");
 
 // All Campagna mines up through 2005
 // Map.addLayer(ee.FeatureCollection("ft:1Vhju89KfrsOPnwEH2y8hvXX3iJ-Pzdgvr60D3H7T"));
 
+// Specific year's mining only
 // Map.addLayer(mining
-//   .filterMetadata("year","equals",1989),
-//   {bands:["MTR"], min:1989, max:1989}, "specific year mining");
+//   .filterMetadata("year","equals",vizyear),
+//   {bands:["MTR"], min:vizyear, max:vizyear, palette:["ff0000"]}, vizyear+" mining");
 
-Map.addLayer(ee.Image(0),{},"black");
+// Full set of mining
 Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016,
   palette:["ffffcc","ffeda0","fed976","feb24c","fd8d3c","fc4e2a",
               "e31a3c","bd0026","800026"],
 }, "symbolized mining");
 
-print(accuracy)
+// Show accuracy assessment values
+print(accuracy);
