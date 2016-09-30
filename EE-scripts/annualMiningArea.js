@@ -114,9 +114,9 @@ var mask_input_excludeMines = mask_input_60m_2015
 
 // Create a list of yearly threshold images, and a list of years associated with
 // those images, for image selection within the loop
-var threshImgList = ee.ImageCollection("users/andrewpericak/annualThresholds")
+var threshImgList = ee.ImageCollection("users/christian/0-10_Threshold/annualThreshold_0-3")
   .sort("year").toList(100);
-var threshImgYrList = ee.List(ee.ImageCollection("users/andrewpericak/annualThresholds")
+var threshImgYrList = ee.List(ee.ImageCollection("users/christian/0-10_Threshold/annualThreshold_0-3")
   .aggregate_array("year")).sort();
 
 // This initially compares the NDVI at each pixel to the given threshold. The
@@ -305,23 +305,22 @@ var mining = ee.ImageCollection(noiseCleaning2.map(function(image){
   var year = ee.Number(image.get("year"));
   // Create binary image containing the intersection between the LowNDVI and 
   // anywhere the inverted mask is 0
-  var mtr = image.and(mask_input_excludeMines.eq(0));
+  var mines = image.and(mask_input_excludeMines.eq(0));
   
-  // Mask MTR by the erosion/dilation, and by mining permit locations buffered 
-  // out 1 km
-  var mtrMasked = mtr.updateMask(mtr.and(miningPermits))
-      .multiply(year).rename('MTR').toInt();
+  // Mask mine layer by itself; label with specific year (for viz)
+  var minesMasked = mines.updateMask(mines)
+    .multiply(year).rename('mining').toInt();
   
   // Remove small, noisy pixel areas (remember, this is dependent on zoom level)
-  var smallAreaMask = mtrMasked.connectedPixelCount().gte(25);
-  var noSmall = mtrMasked.updateMask(smallAreaMask);
+  var smallAreaMask = minesMasked.connectedPixelCount().gte(10);
+  var noSmall = minesMasked.updateMask(smallAreaMask);
   
   // Compute area per pixel
   var area = ee.Image.pixelArea().multiply(noSmall)
     .divide(year).rename('area').toFloat();
   
   return image.addBands(noSmall).addBands(area).addBands(countyImg)
-    .select(["MTR","area","FIPS"]);
+    .select(["mining","area","FIPS"]);
 }));
 
 /*----------------------- ACCURACY ASSESSMENT --------------------------------*/
@@ -329,7 +328,7 @@ var mining = ee.ImageCollection(noiseCleaning2.map(function(image){
 // This will add properties to each yearly image, reporting overall accuracy
 // (accuracy), kappa coefficient (kappa), user's error (user), and producer's
 // error (producer)
-var accuracy = mining.select("MTR").map(function(image){
+var accuracy = mining.select("mining").map(function(image){
   var year = image.get('year');
   image = image.gt(0).unmask();
   // The next line is a Fusion Table containing all manually-classified points
@@ -338,7 +337,7 @@ var accuracy = mining.select("MTR").map(function(image){
   var points = ee.FeatureCollection("ft:16o3Xphy1drmHoTQEOcNBZv7OdiFwnK0jbsfaZRrf")
     .filterMetadata("YEAR","equals",year);
   var output = image.sampleRegions(points, ['CLASS'], 30);
-  var error_matrix = output.errorMatrix('CLASS', 'MTR');
+  var error_matrix = output.errorMatrix('CLASS', 'mining');
   return image.set({"accuracy": error_matrix.accuracy(), 
     "kappa": error_matrix.kappa(),
     "user": error_matrix.consumersAccuracy().toList().flatten(), 
@@ -398,14 +397,14 @@ Export.table.toDrive({
 
 /*--------------------------- EXPORT TO VECTORS ------------------------------*/
 
-//// This will export the mining areas for a given year as polygons, where each
-//// polygon will be labeled with its EE-calcuated area and the year
+//// This will export the active mining areas for a given year as polygons,
+//// where each polygon will be labeled with its EE-calcuated area and the year
 
 // Set the year of export here
 var vectorYr = 1985;
 var vectorImg = ee.Image(mining
   .filterMetadata("year","equals",vectorYr).first())
-  .select("MTR","area"); // Can't export FIPS if we want summed area...
+  .select("mining","area"); // Can't export FIPS if we want summed area...
 
 var vectors = vectorImg.reduceToVectors({
   reducer: ee.Reducer.sum(),  // Each polygon will have sum of its area
@@ -440,10 +439,12 @@ Export.image.toDrive({
 
 
 //// TOTAL CUMULATIVE AREA (i.e., anything that has ever been mined)
-var cumulativeArea = mining.reduce(ee.Reducer.anyNonZero());
+var cumulativeArea = mining
+  .filterMetadata("year","greater_than",1983) // UNCOMMENT LINE TO EXCLUDE MSS
+  .reduce(ee.Reducer.anyNonZero());
 
 // This will give the number in square meters (print the output)
-var TCA_pixelArea = cumulativeArea.select("MTR_any")
+var TCA_pixelArea = cumulativeArea.select("mining_any")
   .multiply(ee.Image.pixelArea());
 var TCA_reducer = TCA_pixelArea.reduceRegion({
   reducer: ee.Reducer.sum(),
@@ -469,13 +470,15 @@ Export.image.toDrive({
 // that each time step has slightly more mining area (i.e., whatever was
 // new as of that year)
 var first = ee.List([
-  ee.Image(0).set("year", 1).select([0],["MTR"]).addBands(
-    ee.Image(mining.filterMetadata("year","equals",1972).first()),null,true)
-    .unmask().cast({"MTR": "long"})]);
+  ee.Image(0).set("year", 1).select([0],["mining"]).addBands(
+    ee.Image(mining
+    .filterMetadata("year","equals",1984) // SET TO 1972 (INCLUDE MSS) or 1984 (NO MSS)
+    .first()),null,true)
+    .unmask().cast({"mining": "long"})]);
 var iterator = function(image, list){
   var year = ee.Number(image.get("year"));
   var previous = ee.Image(ee.List(list).get(-1));
-  var added = image.select("MTR")
+  var added = image.select("mining")
     //.clip(features.geometry()) // Uncomment this line to run on a subset of features
     .unmask().add(previous);
   var setyear = added.where(added.gt(2016),year)
@@ -483,7 +486,9 @@ var iterator = function(image, list){
   return ee.List(list).add(setyear);
 };
 var annualCumulativeArea = ee.ImageCollection(ee.List(
-  mining.iterate(iterator, first)))
+  mining
+  .filterMetadata("year","greater_than",1983) // UNCOMMENT LINE TO EXCLUDE MSS
+  .iterate(iterator, first)))
   .limit({
     max: 37,
     property: "year",
@@ -494,7 +499,7 @@ var annualCumulativeArea = ee.ImageCollection(ee.List(
 // area (which applies to entire study extent), to a fake geometry, and then
 // exporting that geometry as a FeatureCollection, which can be written to
 // a table. It's sortof roundabout, but necessary to get one value per year.
-var reduceACA = annualCumulativeArea.select("MTR")
+var reduceACA = annualCumulativeArea.select("mining")
   .map(function(image){
     var dict = ee.Dictionary({});
     var year = image.get("year");
@@ -520,11 +525,11 @@ Export.table.toDrive({
 //// VIDEO EXPORT
 
 // This exports yearly mining extent video for specified region
-var forceRGB = annualCumulativeArea.select("MTR").map(function(image){
+var forceRGB = annualCumulativeArea.select("mining").map(function(image){
   var year = ee.Number(image.get("year"));
   return image.visualize({
-    bands: ["MTR"],
-    min: 1972,
+    bands: ["mining"],
+    min: 1972, // SET TO 1972 (INCLUDE MSS) or 1984 (NO MSS)
     max: 2016,
     palette: ["000000", "ffffcc","ffeda0","fed976","feb24c","fd8d3c","fc4e2a",
               "e31a3c","bd0026","800026"],
@@ -582,11 +587,11 @@ Export.video.toDrive({
 
 //////// Temporary for viz / checking
 
-var vizyear = 2003;
+var vizyear = 2016;
 
 // Greenest pixel composites for specified year
-Map.addLayer(greenestComposites.filterMetadata("year","equals",vizyear),
-  {bands:["NDVI"], min:0, max:0.8}, vizyear+" greenest");
+// Map.addLayer(greenestComposites.filterMetadata("year","equals",vizyear),
+//   {bands:["NDVI"], min:0, max:0.8}, vizyear+" greenest");
 
 // Black background image (good contrast)
 Map.addLayer(ee.Image(0),{},"black");
@@ -597,10 +602,15 @@ Map.addLayer(ee.Image(0),{},"black");
 // Specific year's mining only
 // Map.addLayer(mining
 //   .filterMetadata("year","equals",vizyear),
-//   {bands:["MTR"], min:vizyear, max:vizyear, palette:["ff0000"]}, vizyear+" mining");
+//   {bands:["mining"], min:vizyear, max:vizyear, palette:["ff0000"]}, vizyear+" mining");
+
+// All results from Campagna as raster (no date info here)
+// var masker = ee.Image("users/christian/Campagna-MTR-SM_1976-2005-Raster").gt(0);
+// Map.addLayer(masker.updateMask(masker));
 
 // Full set of mining
-Map.addLayer(mining, {bands:["MTR"], min:1972, max:2016,
+Map.addLayer(mining.filterMetadata("year","greater_than",1983), 
+  {bands:["mining"], min:1983, max:2016,
   palette:["ffffcc","ffeda0","fed976","feb24c","fd8d3c","fc4e2a",
               "e31a3c","bd0026","800026"],
 }, "symbolized mining");
