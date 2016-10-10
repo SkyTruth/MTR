@@ -114,9 +114,9 @@ var mask_input_excludeMines = mask_input_60m_2015
 
 // Create a list of yearly threshold images, and a list of years associated with
 // those images, for image selection within the loop
-var threshImgList = ee.ImageCollection("users/christian/0-10_Threshold/annualThreshold_0-3")
+var threshImgList = ee.ImageCollection("users/andrewpericak/annualThresholdImages_0-3")
   .sort("year").toList(100);
-var threshImgYrList = ee.List(ee.ImageCollection("users/christian/0-10_Threshold/annualThreshold_0-3")
+var threshImgYrList = ee.List(ee.ImageCollection("users/andrewpericak/annualThresholdImages_0-3")
   .aggregate_array("year")).sort();
 
 // This initially compares the NDVI at each pixel to the given threshold. The
