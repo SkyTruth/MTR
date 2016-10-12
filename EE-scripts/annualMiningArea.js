@@ -381,6 +381,7 @@ var getFeatures = function(feature) {
       reducer: 'sum', 
       geometry: feature.geometry(), 
       scale: 30,
+      crs: "EPSG:5072",
       maxPixels: 1e10
     });
     return image.set(yearlyArea).set({"FIPS": fips});
@@ -401,7 +402,7 @@ Export.table.toDrive({
 //// where each polygon will be labeled with its EE-calcuated area and the year
 
 // Set the year of export here
-var vectorYr = 1985;
+var vectorYr = 1984;
 var vectorImg = ee.Image(mining
   .filterMetadata("year","equals",vectorYr).first())
   .select("mining","area"); // Can't export FIPS if we want summed area...
@@ -410,6 +411,7 @@ var vectors = vectorImg.reduceToVectors({
   reducer: ee.Reducer.sum(),  // Each polygon will have sum of its area
   geometry: features.geometry(),
   scale: 30,
+  crs: "EPSG:5072",
   labelProperty: "year",
   maxPixels: 1e10,
 }).set({"year":vectorYr});
@@ -424,7 +426,7 @@ Export.table.toDrive({
 
 //// EXPORT SPECIFIC YEAR'S IMAGERY
 // Set the year on the following line
-var exportYr = 1985;
+var exportYr = 1984;
 
 var yearExport = ee.Image(mining.filterMetadata("year","equals",exportYr).first())
   .select(["area","FIPS"]).cast({"area":"float","FIPS":"float"});
@@ -434,6 +436,7 @@ Export.image.toDrive({
   description: "mining_"+exportYr,
   region: studyArea.geometry(),
   scale: 30,
+  crs: "EPSG:5072",
   maxPixels: 1e10
 });
 
@@ -450,6 +453,7 @@ var TCA_reducer = TCA_pixelArea.reduceRegion({
   reducer: ee.Reducer.sum(),
   geometry: features.geometry(),
   scale: 30,
+  crs: "EPSG:5072",
   maxPixels:1e10
 });
 
@@ -459,6 +463,7 @@ Export.image.toDrive({
   description: "totalCumulativeMineArea",
   region: studyArea.geometry(),
   scale: 30,
+  crs: "EPSG:5072",
   maxPixels: 1e10
 });
 
@@ -509,6 +514,7 @@ var reduceACA = annualCumulativeArea.select("mining")
       reducer: ee.Reducer.sum(),
       geometry: studyArea.geometry(),
       scale: 30,
+      crs: "EPSG:5072",
       maxPixels: 1e10
     });
     dict = ee.Dictionary(dict.set("yearlyArea",yearlyArea)).set("year",year);
