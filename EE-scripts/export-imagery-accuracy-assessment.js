@@ -12,7 +12,7 @@ buffer around those sample plots. */
 // CHANGE THE YEAR for whatever year you need imagery
 var year = 2015;
 
-var sampleAreas = ee.FeatureCollection('ft:1k7JWWzOELDgQ_LG3wzZFgXsxygm73pHWXnuPsZjz'); // Original sample areas in EPSG:5072
+var sampleAreas = ee.FeatureCollection('ft:1EBwSxnU5VLmgZl_yv_4HNgVhUb08N9A_spz69oOf'); // Updated sample areas (Omega added, Kappa removed) in EPSG:5072
 var sampleAreaBuffer = sampleAreas.geometry().buffer(1000); // Sample areas buffered 1 km to get surroundings
 var exportbounds = sampleAreaBuffer.bounds();
 
