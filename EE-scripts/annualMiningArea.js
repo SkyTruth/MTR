@@ -420,27 +420,11 @@ Export.table.toDrive({
   description: "vectors_"+vectorYr,
   fileFormat: "geojson"     // Can also specify kml to export as KML
 });
+
+/*------------- EXPORT TO IMAGES, VIDEOS, & ASSOCIATED TABLES ----------------*/
 // Exporting Yearly Mining as GeoTIFFs
 var yearlyMining_raster = ee.Image(mining.filterMetadata("year","equals",vectorYr).first()).select("mining").unmask();
 Export.image.toDrive({image: yearlyMining_raster,description: "active_mining_"+vectorYr,region: studyArea.geometry(),scale: 30,crs: "EPSG:5072",maxPixels: 1e10});
-
-/*------------- EXPORT TO IMAGES, VIDEOS, & ASSOCIATED TABLES ----------------*/
-
-//// EXPORT SPECIFIC YEAR'S IMAGERY
-// Set the year on the following line
-var exportYr = 1985;
-
-var yearExport = ee.Image(mining.filterMetadata("year","equals",exportYr).first())
-  .select(["area","FIPS"]).cast({"area":"float","FIPS":"float"});
-
-Export.image.toDrive({
-  image: yearExport,
-  description: "mining_"+exportYr,
-  region: studyArea.geometry(),
-  scale: 30,
-  crs: "EPSG:5072",
-  maxPixels: 1e10
-});
 
 //// TOTAL CUMULATIVE AREA (i.e., anything that has ever been mined from 1985-2015)
 var cumulativeArea = mining
