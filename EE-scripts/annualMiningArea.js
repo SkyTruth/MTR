@@ -14,7 +14,6 @@
    1975  =   1975-1977
    1978  =   1978-1980
    1981  =   1981-1982
-
 /*------------------ IMPORT GREENEST COMPOSITE FEATURE COLLECTION ----------- */
 var greenestComposites = ee.ImageCollection("users/andrewpericak/greenestComposites");
 
@@ -402,10 +401,10 @@ Export.table.toDrive({
 //// where each polygon will be labeled with its EE-calcuated area and the year
 
 // Set the year of export here
-var vectorYr = 1984;
+var vectorYr = 1985;
 var vectorImg = ee.Image(mining
   .filterMetadata("year","equals",vectorYr).first())
-  .select("mining","area"); // Can't export FIPS if we want summed area...
+  .select("mining","area");   // Can't export FIPS if we want summed area...
 
 var vectors = vectorImg.reduceToVectors({
   reducer: ee.Reducer.sum(),  // Each polygon will have sum of its area
@@ -419,31 +418,36 @@ var vectors = vectorImg.reduceToVectors({
 Export.table.toDrive({
   collection: vectors,
   description: "vectors_"+vectorYr,
-  fileFormat: "kml"
+  fileFormat: "geojson"     // Can also specify kml to export as KML
 });
 
 /*------------- EXPORT TO IMAGES, VIDEOS, & ASSOCIATED TABLES ----------------*/
+// Exporting Yearly Mining as GeoTIFFs
+var yearlyMining_raster = ee.Image(mining.filterMetadata("year","equals",vectorYr).first()).select("mining").unmask();
+Export.image.toDrive({
+  image: yearlyMining_raster,
+  description: "active_mining_"+vectorYr,
+  region: studyArea.geometry(),
+  scale: 30,crs: "EPSG:5072",
+  maxPixels: 1e10
+});
 
-//// EXPORT SPECIFIC YEAR'S IMAGERY
-// Set the year on the following line
-var exportYr = 1984;
-
-var yearExport = ee.Image(mining.filterMetadata("year","equals",exportYr).first())
+var yearMiningData = ee.Image(mining.filterMetadata("year","equals",vectorYr).first())
   .select(["area","FIPS"]).cast({"area":"float","FIPS":"float"});
 
 Export.image.toDrive({
-  image: yearExport,
-  description: "mining_"+exportYr,
+  image: yearMiningData,
+  description: "mining_data_"+vectorYr,
   region: studyArea.geometry(),
   scale: 30,
   crs: "EPSG:5072",
   maxPixels: 1e10
 });
 
-
-//// TOTAL CUMULATIVE AREA (i.e., anything that has ever been mined)
+//// TOTAL CUMULATIVE AREA (i.e., anything that has ever been mined from 1985-2015)
 var cumulativeArea = mining
-  .filterMetadata("year","greater_than",1983) // UNCOMMENT LINE TO EXCLUDE MSS
+  .filterMetadata("year","greater_than",1984)
+  .filterMetadata("year","less_than",2016)
   .reduce(ee.Reducer.anyNonZero());
 
 // This will give the number in square meters (print the output)
@@ -457,10 +461,9 @@ var TCA_reducer = TCA_pixelArea.reduceRegion({
   maxPixels:1e10
 });
 
-// This will export the image of all mine area
 Export.image.toDrive({
   image: cumulativeArea,
-  description: "totalCumulativeMineArea",
+  description: "CumulativeMineArea_1985-2015",
   region: studyArea.geometry(),
   scale: 30,
   crs: "EPSG:5072",
@@ -477,7 +480,7 @@ Export.image.toDrive({
 var first = ee.List([
   ee.Image(0).set("year", 1).select([0],["mining"]).addBands(
     ee.Image(mining
-    .filterMetadata("year","equals",1984) // SET TO 1972 (INCLUDE MSS) or 1984 (NO MSS)
+    .filterMetadata("year","equals",1985) // SET TO 1972 (INCLUDE MSS) or 1985 (NO MSS)
     .first()),null,true)
     .unmask().cast({"mining": "long"})]);
 var iterator = function(image, list){
@@ -486,13 +489,13 @@ var iterator = function(image, list){
   var added = image.select("mining")
     //.clip(features.geometry()) // Uncomment this line to run on a subset of features
     .unmask().add(previous);
-  var setyear = added.where(added.gt(2016),year)
+  var setyear = added.where(added.gt(2015),year)
     .set("year", image.get("year"));
   return ee.List(list).add(setyear);
 };
 var annualCumulativeArea = ee.ImageCollection(ee.List(
   mining
-  .filterMetadata("year","greater_than",1983) // UNCOMMENT LINE TO EXCLUDE MSS
+  .filterMetadata("year","greater_than",1984) // UNCOMMENT LINE TO EXCLUDE MSS
   .iterate(iterator, first)))
   .limit({
     max: 37,
@@ -590,10 +593,8 @@ Export.video.toDrive({
   maxPixels: 1e10
 });
 
-
 //////// Temporary for viz / checking
-
-var vizyear = 2016;
+var vizyear = 2015;
 
 // Greenest pixel composites for specified year
 // Map.addLayer(greenestComposites.filterMetadata("year","equals",vizyear),
