@@ -17,8 +17,11 @@ Goals:
 Conditons:
 ==========
 These apply until such a time as our research is published, at which point they shall be removed.
+
 1. Researcher(s) will not share these data outside of their lab until the results of are published 
-and
+
+**and**
+
 2. Researcher(s) will not publish anything that makes use of, or references, these data until our paper is published.
 
 License
