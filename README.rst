@@ -14,7 +14,12 @@ Goals:
 3. To infill gaps in the 2007 SkyTruth study, as well as update it with data from after 2005
 4. To create an automated method of classifying MTR mining activity, in such a manner that it will be easily updated in the future.
 
-
+Conditons:
+==========
+These apply until such a time as our research is published, at which point they shall be removed.
+1. Researcher(s) will not share these data outside of their lab until the results of are published 
+and
+2. Researcher(s) will not publish anything that makes use of, or references, these data until our paper is published.
 
 License
 =======
