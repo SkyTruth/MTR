@@ -74,7 +74,7 @@ var yearImg = ee.Image(greenestComposites
 
 var reduceAll = ee.ImageCollection(features.map(function(feature){
   return yearImg.reduceRegion({
-    reducer: ee.Reducer.intervalMean(0,1),
+    reducer: ee.Reducer.intervalMean(0,3),
     geometry: feature.geometry(),
     scale: 30,
     maxPixels: 1e10
